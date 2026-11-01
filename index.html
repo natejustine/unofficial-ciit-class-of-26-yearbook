@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="./assets/img/icon.png">
+    <link rel="stylesheet" href="./assets/css/style.css">
+    <title>Class of '26</title>
+</head>
+
+<body>
+    <div class="grain-overlay"></div>
+    <div id="stage">
+        <div id="zoom-layer">
+            <div id="book">
+                <div class="page-shadow" id="shadow-left"></div>
+                <div class="page-shadow" id="shadow-right"></div>
+                <div class="slot" id="left-slot"></div>
+                <div class="slot" id="right-slot"></div>
+                <div id="flip-layer">
+                    <div id="under-shadow">
+                        <div class="shade-strip shade-under"></div>
+                    </div>
+                    <div class="layer" id="front-layer">
+                        <div class="layer-content"></div>
+                        <div class="shade-strip shade-front"></div> 
+                    </div>
+                    <div id="cast-group">
+                        <div class="layer" id="flap-layer">
+                            <div class="layer-content"></div>
+                            <div class="shade-strip shade-flap"></div>
+                        </div>
+                        <div id="hard-cover">
+                            <div class="cover-face-visible"></div>
+                            <div class="cover-face-hidden"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="controls">
+        <button id="previous-button">‹ Prev</button><span id="page-label"></span><button id="next-button">Next
+            ›</button>
+    </div>
+    <script type="text/javascript" src="./assets/js/script.js" id="rendered-js"></script>
+</body>
+
+</html>
