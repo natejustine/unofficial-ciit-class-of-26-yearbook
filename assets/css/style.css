@@ -1,17 +1,24 @@
 @import url("fonts.css");
 
 :root {
-    --backdrop-center: #4b8ba8;
-    --backdrop-edge: #00344c;
-    --text-color: #313233;
+    /* --backdrop-center: #4b8ba8;
+    --backdrop-edge: #00344c; */
+
+    --backdrop-center: white;
+    --backdrop-edge: rgb(250, 254, 255);
+  
     --button-color: rgba(255, 255, 255, 0.1);
     --ciit-accent-1: #40c8ed;
-    --page-color: #e9effc;
     
-    --row-count: 3;
+    /* --page-color: #e9effc; */
+    --page-color: #00344c;
+      /* --text-color: #313233; */
+    --text-color:  #e9effc;
+    
+    --row-count: 2;
     --row-gap: 4%;
-    --col-count: 4;
-    --col-gap: 5.5%;
+    --col-count: 3;
+    --col-gap: 4%;
 
     --gradpic-ratio: 4 / 5;
 
@@ -344,6 +351,7 @@ body {
 }
 
 #controls {
+    mix-blend-mode: exclusion;
     z-index: 100;
     display: flex;
     flex-wrap: wrap;
@@ -388,6 +396,19 @@ body {
     }
 }
 
+.table-of-content-page{
+    font-family: "Montserrat", sans-serif;
+    padding: 6%;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+.toc-button{
+    cursor: pointer;
+}
+
 .graduates-page {
     font-family: "Montserrat", sans-serif;
     padding: 6%;
@@ -401,7 +422,6 @@ body {
     height: 100%;
     width: 100%;
     position: absolute;
-    background-color: red;
     opacity: 0.5;
     background-image: url(../img/ref_layout.jpg);
     background-repeat: no-repeat;
@@ -451,7 +471,7 @@ body {
 
 .graduates-page .student-container {
     width: calc((100% - (var(--col-gap) * (var(--col-count) - 1)) ) / var(--col-count));
-    height: calc((100% - (var(--row-gap) * (var(--row-count) - 1)) ) / var(--row-count));
+    /* height: calc((100% - (var(--row-gap) * (var(--row-count) - 1)) ) / var(--row-count)); */
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
@@ -481,16 +501,17 @@ body {
 }
 
 .image-wrapper .grad-pic{
+    transform: scale(0.95);
 }
 
 /* Student Info Text */
 .graduates-page .student-info {
-    margin-top: 2.5%;
+    margin-top: 3.5%;
     text-align: center;
 }
 
 .graduates-page .student-name {
-    font-size: 0.4em;
+    font-size: 0.6em;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -499,10 +520,10 @@ body {
 
 .graduates-page .student-quote {
     /* font-family: "ReenieBeanie"; */
-    font-size: 0.35em;
+    font-size: 0.45em;
     opacity: 0.85;
     margin-top: 0.15em;
-    line-height: 1.1em;
+    line-height: 1.2em;
     font-style: italic;
     font-weight: 500;
     

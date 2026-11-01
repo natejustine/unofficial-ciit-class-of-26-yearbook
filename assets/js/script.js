@@ -94,9 +94,9 @@ const previousButton = byId("previous-button");
 const nextButton = byId("next-button");
 const pageLabel = byId("page-label");
 
-const studentsPerPage = 12;
-const minRotation = 0;
-const maxRotation = 0;
+const studentsPerPage = 6;
+const minRotation = -3;
+const maxRotation = 3;
 
 let mousePosToBook = {x: 0, y:0};
 let pageWidth = 0;
@@ -138,6 +138,8 @@ const imageFrames = [
   'frame_9.png',
   'frame_10.png',
 ];
+
+const tocPages = [];
 
 // #region Loading CSV
 
@@ -399,18 +401,6 @@ function syncCameraToFlip(flip) {
   book.style.transform = `translateX(${offset}px)`;
 }
 
-// while a page turns, the camera moves in step with it (no "flip, then pan").
-function syncCameraToFlip(flip) {
-  if (flip.mode === "peek") return; // hovering a corner should not nudge the book
-
-  const progress = Math.max(0, Math.min(1, (spreadWidth - flip.position[0]) / spreadWidth));
-  const startOffset = restingCameraOffset(flippedSheets, phoneView);
-  const endOffset = restingCameraOffset(flippedSheets + flip.direction, flip.direction > 0 ? "left" : "right");
-  const offset = startOffset + (endOffset - startOffset) * progress;
-  
-  if (book != null) book.style.transform = `translateX(${offset}px)`;
-}
-
 function setPhoneView(view) {
   if (flipInstance.active) return;
 
@@ -439,7 +429,7 @@ function updateControls() {
   } else if (flippedSheets === sheetCount) {
     pageLabel.textContent = "Back cover";
   } else {
-    pageLabel.textContent = `Pages ${2 * flippedSheets - 1}\u2013${2 * flippedSheets}`;
+    pageLabel.textContent = `Pages ${2 * flippedSheets - 1}-${2 * flippedSheets}`;
   }
 
   previousButton.disabled = isPhoneLayout
@@ -999,12 +989,16 @@ function handlePointerDown(event) {
   
   if (stage == null) return;
 
+  mousePosToBook = pointerToBookCoords(event);
+
   if (event.button === 2) {
     startZoom(event);
     return;
   }
 
   if (event.pointerType === "mouse" && event.button !== 0) return;
+  if (event.target.closest(".toc-button")) return;
+
   cancelSkip(false); 
   
   const isRightView = phoneView === "right";
@@ -1394,21 +1388,29 @@ function instantAnimateStep(targetSheets, targetView) {
   const targetRightFace = faces[2 * targetSheets];
   let faceOverrides = { finalSheets: targetSheets };
 
-  const isClosedFrontCover = flippedSheets === 0 && direction > 0;
-  const isClosedBackCover = flippedSheets === sheetCount && direction < 0;
-  if (isClosedFrontCover) {
-    // the cover swings open: its inside shows the target's left page, and the target's right page is uncovered
-    faceOverrides = { ...faceOverrides, backFace: targetLeftFace, revealedFace: targetRightFace };
-  } else if (isClosedBackCover) {
-    // the back cover swings shut onto the right: it shows the target's right page, and the left page is uncovered
-    faceOverrides = { ...faceOverrides, frontFace: targetRightFace, revealedFace: targetLeftFace };
-  } else {
+  const isClosedBook = (flippedSheets === 0 && direction > 0) || (flippedSheets === sheetCount && direction < 0);
+  const useAdjacentPage = skipTarget && skipTarget.instantAnimate === "adjacent";
+
+  if (useAdjacentPage && !isClosedBook) {
+    // jump to the spread just before the target, then turn the page next to it
     jumpToState(targetSheets - direction, startView);
+  } else if (direction > 0) {
+    // the page you are looking at turns. Its back shows the target's left page,
+    // and the target's right page is uncovered underneath
+    faceOverrides = { ...faceOverrides, backFace: targetLeftFace, revealedFace: targetRightFace };
+  } else {
+    // going backward: the left page you are looking at turns over to the right,
+    // showing the target's right page, and the target's left page is uncovered
+    faceOverrides = { ...faceOverrides, frontFace: targetRightFace, revealedFace: targetLeftFace };
   }
   
   // phone: keep the camera still when the target page is on the side the turn starts from
   const holdCamera = isPhoneLayout && targetView === startView;
   flipPage(direction, { holdCamera, faceOverrides });
+}
+
+function goToPage(pageNumber){
+  skipToPage(pageNumber, {instantAnimate: true});
 }
 
 //#endregion
@@ -1418,9 +1420,15 @@ function AddPagesFromData(pages, data) {
     console.log("No data found.");
     return;
   }
-
+  
   let currentBatch = [];
   let currentProgram = null;
+
+  const pushProgramDivider = (programName) => {
+    pages.push({
+      html: `<div class="program-divider">${programName}</div>`,
+    });
+  };
   
   const pushPage = (programName, students) => {
     if (students.length === 0) return;
@@ -1430,7 +1438,7 @@ function AddPagesFromData(pages, data) {
       <div class="student-container">
         <div class="image-wrapper" style="transform: rotate(${getRandomRotation()}deg);">
           <img class="grad-pic" src="${convertDriveLinkToEmbed(student["Image URL (Drive)"]) || getRandomPlaceholder()}" alt="${student.Name}">
-          
+          <img src="${getRandomImageFrame()}">
         </div>
         <div class="student-info">
           <div class="student-name">${student.Name}</div>
@@ -1452,23 +1460,30 @@ function AddPagesFromData(pages, data) {
       
       `
     });
-
+    
     // <div class="foot">Class of 2026</div>
   };
 
   // Loop through all data rows
   data.forEach((student, index) => {
     const studentProgram = student.Program;
+    
+    // true for the very first student too, because currentProgram starts as null
+    const isNewProgram = currentProgram !== studentProgram;
 
-    // If this is the very first item, or if the program changed, 
-    // we must flush the old batch (if any) and start a new program group.
-    if (currentProgram !== null && currentProgram !== studentProgram) {
+    // flush the previous program's last, partly filled page first...
+    if (currentProgram !== null && isNewProgram) {
       pushPage(currentProgram, currentBatch);
       currentBatch = [];
     }
-
+    
     currentProgram = studentProgram;
     currentBatch.push(student);
+
+    if (isNewProgram) {
+      //pushProgramDivider(studentProgram);
+      tocPages.push({name: currentProgram, pageNumber: pages.length - 1});
+    }
 
     // if the batch hits studentsPerPage students, push the page and reset the batch
     if (currentBatch.length === studentsPerPage) {
@@ -1489,7 +1504,7 @@ async function initialize() {
   if (stage == null) return;
   if (previousButton == null) return;
   if (nextButton == null) return;
-
+  
   const sheetData = await loadSheetData();
 
   console.log("Data Loaded");
@@ -1502,14 +1517,19 @@ async function initialize() {
       <img class="background-image" src="./assets/img/front.png">
     `,
   });
+
+  tocPages.push({name: "Cover", pageNumber: bookPages.length - 1});
+
   bookPages.push({
     cover: true,
     html: `<img class="background-image" src="./assets/img/front-op.png">`,
   });
-
+  
   bookPages.push({
-    html: `<div>TOC</div>`,
+    html: ``,
   });
+
+  const tocIndex = bookPages.length - 1;
 
   bookPages.push({
     html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/pattern.jpg">`,
@@ -1535,12 +1555,28 @@ async function initialize() {
     cover: true,
     html: `<img class="background-image" src="./assets/img/back.png">`,
   });
-
+  
   // every sheet needs two faces. If the count is odd, add a blank page before the back cover.
   if (bookPages.length % 2 !== 0) {
     bookPages.splice(bookPages.length - 2, 0, { html: "" });
   }
 
+  // table of contents
+
+  let tocLinksHtml = "";
+  tocPages.forEach((currentTocData) => {
+    tocLinksHtml += `<div><span class="toc-button" onclick="goToPage(${currentTocData.pageNumber})">${currentTocData.name}</span></div>`;
+  });
+  
+  bookPages[tocIndex] = {
+    html: `
+    <div class="table-of-content-page" id="toc">
+      TOC
+      ${tocLinksHtml}
+    </div>
+    `,
+  };
+  
   faceCount = bookPages.length;
   sheetCount = faceCount / 2;
 
@@ -1552,7 +1588,7 @@ async function initialize() {
   addEventListener("blur", stopZoom);
   
   stage.addEventListener("pointerdown", (event) => handlePointerDown(event));
-
+  
   stage.addEventListener("pointermove", (event) => handlePointerMove(event));
   
   stage.addEventListener("pointerup", (event) => {
@@ -1562,7 +1598,7 @@ async function initialize() {
       isPanLocked = false;
     }
   });
-
+  
   stage.addEventListener("pointercancel", () => {
     stopZoom();
     releasePointer();
@@ -1584,11 +1620,11 @@ async function initialize() {
     else if (event.key === "ArrowLeft") navigate(-1);
   });
   addEventListener("resize", layoutBook);
-
+  
   layoutBook();
   
   //skipToPage(17, {instantAnimate: true});
-  skipToPage(12, {instant: true});
+  //skipToPage(1, {instant: true});
 }
 
 initialize();
