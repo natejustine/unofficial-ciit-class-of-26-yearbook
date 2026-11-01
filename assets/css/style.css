@@ -1,17 +1,19 @@
 @import url("fonts.css");
 
 :root {
-    --backdrop-center: #e9effc;
-    --backdrop-edge: rgb(241, 230, 230);
+    --backdrop-center: #4b8ba8;
+    --backdrop-edge: #00344c;
     --text-color: #313233;
     --button-color: rgba(255, 255, 255, 0.1);
     --ciit-accent-1: #40c8ed;
-    --page-color: #00344c;
+    --page-color: #e9effc;
     
-    --row-count: 2;
+    --row-count: 3;
     --row-gap: 4%;
-    --col-count: 3;
-    --col-gap: 2%;
+    --col-count: 4;
+    --col-gap: 5.5%;
+
+    --gradpic-ratio: 4 / 5;
 
     color-scheme: dark;
     box-sizing: border-box;
@@ -229,7 +231,6 @@ body {
     /* background: var(--backdrop-center); */
     font-size: calc(var(--page-height) / 40);
     line-height: 1.5;
-    color: #3a3630;
     font-family: Georgia, "Times New Roman", serif;
     overflow: hidden;
     isolation: isolate;
@@ -284,7 +285,6 @@ body {
 }
 
 .hard-cover-page {
-    color: #f1f0ec;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -390,22 +390,41 @@ body {
 
 .graduates-page {
     font-family: "Montserrat", sans-serif;
-    color: white;
-    padding: 7%;
+    padding: 6%;
     height: 100%;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
 }
 
+.ref-layout {
+    height: 100%;
+    width: 100%;
+    position: absolute;
+    background-color: red;
+    opacity: 0.5;
+    background-image: url(../img/ref_layout.jpg);
+    background-repeat: no-repeat;
+    background-size: cover;
+    z-index: 9999;
+}
+
+.page-left .graduates-page .program{
+    text-align: left;
+}
+
+.page-right .graduates-page .program{
+    text-align: right;
+}
+
 .graduates-page .program {
-    text-align: center;
+    height: 5%;
     font-size: 0.5em;
-    line-height: 0.9em;
+    line-height: 1em;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     font-weight: 500;
-    margin-bottom: 4%;
+    margin-bottom: 1%;
     flex-shrink: 0;
 }
 
@@ -432,6 +451,7 @@ body {
 
 .graduates-page .student-container {
     width: calc((100% - (var(--col-gap) * (var(--col-count) - 1)) ) / var(--col-count));
+    height: calc((100% - (var(--row-gap) * (var(--row-count) - 1)) ) / var(--row-count));
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
@@ -439,7 +459,7 @@ body {
 
 .graduates-page .image-wrapper {
     width: 100%;
-    aspect-ratio: 4 / 5;
+    aspect-ratio: var(--gradpic-ratio);
     /* border: 0.05em solid white; */
     box-sizing: border-box;
     overflow: hidden;
@@ -461,17 +481,16 @@ body {
 }
 
 .image-wrapper .grad-pic{
-    transform: scale(0.93);
 }
 
 /* Student Info Text */
 .graduates-page .student-info {
-    margin-top: 6px;
+    margin-top: 2.5%;
     text-align: center;
 }
 
 .graduates-page .student-name {
-    font-size: 0.6em;
+    font-size: 0.4em;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -480,12 +499,12 @@ body {
 
 .graduates-page .student-quote {
     /* font-family: "ReenieBeanie"; */
-    font-size: 0.5em;
+    font-size: 0.35em;
     opacity: 0.85;
     margin-top: 0.15em;
     line-height: 1.1em;
     font-style: italic;
-    font-weight: 400;
+    font-weight: 500;
     
     display: -webkit-box;
     -webkit-box-orient: vertical;

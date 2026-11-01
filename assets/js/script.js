@@ -94,8 +94,9 @@ const previousButton = byId("previous-button");
 const nextButton = byId("next-button");
 const pageLabel = byId("page-label");
 
-const minRotation = -1.2;
-const maxRotation = 1.2;
+const studentsPerPage = 12;
+const minRotation = 0;
+const maxRotation = 0;
 
 let mousePosToBook = {x: 0, y:0};
 let pageWidth = 0;
@@ -1429,26 +1430,30 @@ function AddPagesFromData(pages, data) {
       <div class="student-container">
         <div class="image-wrapper" style="transform: rotate(${getRandomRotation()}deg);">
           <img class="grad-pic" src="${convertDriveLinkToEmbed(student["Image URL (Drive)"]) || getRandomPlaceholder()}" alt="${student.Name}">
-          <img src="${getRandomImageFrame()}">
+          
         </div>
         <div class="student-info">
           <div class="student-name">${student.Name}</div>
-          <div class="student-quote">"${student.Quote}"</div>
+          ${student.Quote && student.Quote.trim() !== "" ? `<div class="student-quote">"${student.Quote}"</div>` : ''}
         </div>
       </div>
     `).join("");
-
+    
+    //<div class="ref-layout"></div>
     pages.push({
       html: `
       <div class="graduates-page">
-        <div class="program">${programName.replace(/<br>/g, " ")}</div>
+        <div class="program">${programName}<br>Class of 2026</div>
         <div class="students-holder">
           ${studentsHtml}
         </div>
-        <div class="foot">Class of 2026</div>
+        
       </div>
+      
       `
     });
+
+    // <div class="foot">Class of 2026</div>
   };
 
   // Loop through all data rows
@@ -1465,14 +1470,14 @@ function AddPagesFromData(pages, data) {
     currentProgram = studentProgram;
     currentBatch.push(student);
 
-    // if the batch hits 6 students, push the page and reset the batch
-    if (currentBatch.length === 6) {
+    // if the batch hits studentsPerPage students, push the page and reset the batch
+    if (currentBatch.length === studentsPerPage) {
       pushPage(currentProgram, currentBatch);
       currentBatch = [];
     }
   });
   
-  // push any remaining students who didn't fill a full block of 6
+  // push any remaining students who didn't fill a full block of studentsPerPage
   if (currentBatch.length > 0) {
     pushPage(currentProgram, currentBatch);
   }
@@ -1582,7 +1587,8 @@ async function initialize() {
 
   layoutBook();
   
-  skipToPage(17, {instantAnimate: true});
+  //skipToPage(17, {instantAnimate: true});
+  skipToPage(12, {instant: true});
 }
 
 initialize();
