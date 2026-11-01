@@ -123,7 +123,19 @@ const vu = "MlBBQ1gtMXZRNjRXbldZQXgtN2N0Vzg4Q1FhWENnS3BhV1NXNTBsa1VmbS1OVFhzaHd4
 const rl = "cHViP291dHB1dD1jc3Y=";
 
 const placeholders = [
-  'placeholder_0.jpg',
+  'placeholder.jpg'
+];
+const imageFrames = [
+  'frame_1.png',
+  'frame_2.png',
+  'frame_3.png',
+  'frame_4.png',
+  'frame_5.png',
+  'frame_6.png',
+  'frame_7.png',
+  'frame_8.png',
+  'frame_9.png',
+  'frame_10.png',
 ];
 
 // #region Loading CSV
@@ -220,8 +232,15 @@ function convertDriveLinkToEmbed(input) {
 function getRandomPlaceholder(){
   const randomIndex = Math.floor(Math.random() * placeholders.length);
   const randomItem = placeholders[randomIndex];
-
+  
   return `./assets/img/placeholders/${randomItem}`;
+}
+
+function getRandomImageFrame(){
+  const randomIndex = Math.floor(Math.random() * imageFrames.length);
+  const randomItem = imageFrames[randomIndex];
+  
+  return `./assets/img/frames/${randomItem}`;
 }
 
 function getRandomRotation(){
@@ -947,7 +966,7 @@ function computeTarget(flip, pointerX, pointerY) {
 
 // Hovering near an outer corner with a mouse makes the page peel slightly.
 function findHoverCorner(pointerX, pointerY) {
-  const zone = Math.min(90, pageWidth * 0.2);
+  const zone = pageWidth * 0.15;
   let direction = 0;
   if (
     pointerX > spreadWidth - zone &&
@@ -1100,7 +1119,7 @@ function handlePointerMove(event) {
 
     const peekDistance = flipInstance.isHardCover
       ? pageWidth * 0.03
-      : Math.min(60, pageWidth * 0.12);
+      : pageWidth * 0.12;
 
     flipInstance.isLeaving = false;
 
@@ -1409,8 +1428,8 @@ function AddPagesFromData(pages, data) {
     const studentsHtml = students.map(student => `
       <div class="student-container">
         <div class="image-wrapper" style="transform: rotate(${getRandomRotation()}deg);">
-          <img src="${convertDriveLinkToEmbed(student["Image URL (Drive)"]) || getRandomPlaceholder()}" alt="${student.Name}">
-          
+          <img class="grad-pic" src="${convertDriveLinkToEmbed(student["Image URL (Drive)"]) || getRandomPlaceholder()}" alt="${student.Name}">
+          <img src="${getRandomImageFrame()}">
         </div>
         <div class="student-info">
           <div class="student-name">${student.Name}</div>
@@ -1563,7 +1582,7 @@ async function initialize() {
 
   layoutBook();
   
-  //skipToPage(15, {instantAnimate: true});
+  skipToPage(17, {instantAnimate: true});
 }
 
 initialize();

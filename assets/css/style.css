@@ -439,11 +439,10 @@ body {
 
 .graduates-page .image-wrapper {
     width: 100%;
-    aspect-ratio: 3 / 4;
-    border: 0.05em solid white;
+    aspect-ratio: 4 / 5;
+    /* border: 0.05em solid white; */
     box-sizing: border-box;
     overflow: hidden;
-    background: rgba(0, 0, 0, 0.3); 
     position: relative;
     
     -webkit-user-drag: none;
@@ -461,6 +460,10 @@ body {
     display: block;
 }
 
+.image-wrapper .grad-pic{
+    transform: scale(0.93);
+}
+
 /* Student Info Text */
 .graduates-page .student-info {
     margin-top: 6px;
@@ -476,15 +479,31 @@ body {
 }
 
 .graduates-page .student-quote {
-    font-family: "ReenieBeanie";
-    font-size: 0.8em;
+    /* font-family: "ReenieBeanie"; */
+    font-size: 0.5em;
     opacity: 0.85;
     margin-top: 0.15em;
-    line-height: 0.8em;
-
+    line-height: 1.1em;
+    font-style: italic;
+    font-weight: 400;
+    
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 5;
     line-clamp: 5; 
     overflow: hidden;
 }
+
+/* .graduates-page .student-quote {
+    font-family: "ReenieBeanie";
+    font-size: 0.8em;
+    opacity: 0.85;
+    margin-top: 0.15em;
+    line-height: 0.8em;
+    
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 5;
+    line-clamp: 5; 
+    overflow: hidden;
+} */
