@@ -41,6 +41,7 @@ body {
             var(--backdrop-center),
             var(--backdrop-edge));
     color: var(--text-color);
+    text-shadow: 0 0 0.4em color-mix(var(--page-color) 70%, transparent  30%);
     font:
         14px system-ui,
         -apple-system,
@@ -398,11 +399,29 @@ body {
 
 .table-of-content-page{
     font-family: "Montserrat", sans-serif;
-    padding: 6%;
+}
+
+.toc-list{
+    font-size: 0.6em;
+    font-weight: 500;
+    width: 30%;
+    position: absolute;
+    left: 40%;
+    top: 50%; 
+    transform: translateY(-50%);
+    text-transform: uppercase;
+}
+
+.toc-title{
+    position: absolute;
+    left: 24.2%;
+    font-family: "Montserrat", sans-serif;
+    text-align: center;
+    font-size: 3.2em;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    writing-mode:sideways-lr;
     height: 100%;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
 }
 
 .toc-button{
@@ -514,7 +533,6 @@ body {
 .graduates-page .student-info {
     margin-top: 3.5%;
     text-align: center;
-    text-shadow: 0 0 0.4em color-mix(var(--page-color) 70%, transparent  30%);
 }
 
 .graduates-page .student-name {

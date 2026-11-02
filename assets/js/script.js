@@ -1530,7 +1530,7 @@ function AddPagesFromData(pages, data) {
 
     if (isNewProgram) {
       //pushProgramDivider(studentProgram);
-      tocPages.push({name: currentProgram, pageNumber: pages.length - 1});
+      tocPages.push({name: currentProgram, pageNumber: pages.length});
     }
 
     // if the batch hits studentsPerPage students, push the page and reset the batch
@@ -1566,15 +1566,23 @@ async function initialize() {
     `,
   });
 
-  tocPages.push({name: "Cover", pageNumber: bookPages.length - 1});
+  //tocPages.push({name: "Cover", pageNumber: bookPages.length - 1});
 
   bookPages.push({
     cover: true,
     html: `<img class="background-image" src="./assets/img/front-op.png">`,
   });
-  
+
   bookPages.push({
     html: ``,
+  });
+
+  bookPages.push({
+    html: `<img class="background-image" style="opacity: 0.4" src="./assets/img/inter-left.png">`,
+  });
+  
+  bookPages.push({
+    html: `table of contents`,
   });
 
   const tocIndex = bookPages.length - 1;
@@ -1613,14 +1621,16 @@ async function initialize() {
 
   let tocLinksHtml = "";
   tocPages.forEach((currentTocData) => {
-    tocLinksHtml += `<div><span class="toc-button" onclick="goToPage(${currentTocData.pageNumber})">${currentTocData.name}</span></div>`;
+    tocLinksHtml += `<div><span class="toc-button" onclick="goToPage(${currentTocData.pageNumber})">${currentTocData.pageNumber} - ${currentTocData.name}</span></div><br>`;
   });
   
   bookPages[tocIndex] = {
     html: `
-    <div class="table-of-content-page" id="toc">
-      TOC
-      ${tocLinksHtml}
+    <img class="background-image" style="opacity: 0.4" src="./assets/img/inter-right.png">
+    <div class="toc-title">CONTENTS</div>
+    <div class="table-of-content-page">
+      <div class="toc-list">${tocLinksHtml}</div>
+      
     </div>
     `,
   };
@@ -1674,7 +1684,7 @@ async function initialize() {
   layoutBook();
   
   //skipToPage(17, {instantAnimate: true});
-  //skipToPage(17, {instant: true});
+  skipToPage(3, {instant: true});
 }
 
 initialize();
