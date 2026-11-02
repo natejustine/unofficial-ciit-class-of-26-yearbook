@@ -262,9 +262,6 @@ function createFace(faceIndex, bookPages) {
   return face;
 }
 
-// ============================================================
-// Small helpers
-// ============================================================
 function fillSlot(slot, face) {
   slot.textContent = "";
   if (face) slot.appendChild(face.cloneNode(true));
@@ -1280,7 +1277,7 @@ function skipToPage(pageNumber, options = {}) {
     const targetView = faceIndex % 2 === 0 ? "right" : "left"; // phone: which page of the spread to show
 
     if (flipInstance.active) finishFlip(false);
-
+    
     if (options.instant) {
       flippedSheets = targetSheets;
       phoneView = targetView;
@@ -1439,6 +1436,7 @@ function AddPagesFromData(pages, data) {
         <div class="image-wrapper" style="transform: rotate(${getRandomRotation()}deg);">
           <img class="grad-pic" src="${convertDriveLinkToEmbed(student["Image URL (Drive)"]) || getRandomPlaceholder()}" alt="${student.Name}">
           <img src="${getRandomImageFrame()}">
+          ${student["Overlay Image URL (G Drive)"] && student["Overlay Image URL (G Drive)"].trim() !== "" ? `<img class="overlay" src="${convertDriveLinkToEmbed(student["Overlay Image URL (G Drive)"])}">` : ''}
         </div>
         <div class="student-info">
           <div class="student-name">${student.Name}</div>
@@ -1450,6 +1448,7 @@ function AddPagesFromData(pages, data) {
     //<div class="ref-layout"></div>
     pages.push({
       html: `
+      <img class="background-image" src="./assets/img/bg.jpg">
       <div class="graduates-page">
         <div class="program">${programName}<br>Class of 2026</div>
         <div class="students-holder">
@@ -1560,7 +1559,7 @@ async function initialize() {
   if (bookPages.length % 2 !== 0) {
     bookPages.splice(bookPages.length - 2, 0, { html: "" });
   }
-
+  
   // table of contents
 
   let tocLinksHtml = "";
@@ -1624,7 +1623,7 @@ async function initialize() {
   layoutBook();
   
   //skipToPage(17, {instantAnimate: true});
-  //skipToPage(1, {instant: true});
+  //skipToPage(17, {instant: true});
 }
 
 initialize();
