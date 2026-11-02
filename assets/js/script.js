@@ -59,6 +59,11 @@ class FlipInstance {
 }
 
 const flipInstance = new FlipInstance();
+const flipPageSound = new Audio('assets/audio/flip-page.mp3');
+const flipCoverSound = new Audio('assets/audio/flip-cover.mp3');
+const pageDropSound = new Audio('assets/audio/page-drop.mp3');
+const pagePickSound = new Audio('assets/audio/page-pick.mp3');
+
 
 // interaction
 const SWIPE_PAN_DISTANCE = 28; // px a phone swipe must travel to pan instead of flip
@@ -260,6 +265,35 @@ function openPortfolio(url) {
     }
     
     window.open(trimmedUrl, '_blank');
+}
+
+function playFlipSound() {
+  
+  if(!flipInstance.isHardCover){
+    flipPageSound.currentTime = 0;
+    flipPageSound.play();
+  } else{
+    flipCoverSound.currentTime = 0;
+    flipCoverSound.play();
+  }
+  
+}
+
+function playDropSound() {
+  
+  if(!flipInstance.isHardCover){
+    pageDropSound.currentTime = 0;
+    pageDropSound.play();
+  } else{
+    flipCoverSound.currentTime = 0;
+    flipCoverSound.play();
+  }
+  
+}
+
+function playPickSound(){
+  pagePickSound.currentTime = 0;
+  pagePickSound.play();
 }
 
 // #endregion
@@ -889,7 +923,7 @@ function drawHardCover(flip) {
   const angle = Math.acos( Math.max(-1, Math.min(1, (edgeX - pageWidth) / pageWidth)));
   const sine = Math.sin(angle);
   const shadowAlpha = CAST_SHADOW_ALPHA * Math.min(1, sine * 4);
-
+  
   castGroup.style.setProperty("--cast-alpha", shadowAlpha.toString());
 
   const degrees = (angle * 180) / Math.PI;
@@ -1150,12 +1184,12 @@ function releasePointer() {
   
   stage.style.cursor = "";
   if (!flipInstance.active || flipInstance.mode !== "drag") return;
-
+  
   const isTap =
     flipInstance.dragDistance < TAP_MAX_MOVEMENT &&
     performance.now() - flipInstance.pointerDown.time < TAP_MAX_DURATION;
   const horizontalSpeed = flipInstance.velocity[0];
-
+  
   // phone: tapping near the spine pans to the other page instead of flipping
   const grabbedNearSpine = flipInstance.grabPoint[0] - pageWidth < pageWidth * 0.25;
   const otherPageExists =
@@ -1165,7 +1199,7 @@ function releasePointer() {
     setPhoneView(flipInstance.direction > 0 ? "left" : "right");
     return;
   }
-
+  
   flipInstance.completes =
     isTap ||
     horizontalSpeed < -FLICK_SPEED ||
@@ -1173,6 +1207,7 @@ function releasePointer() {
       flipInstance.position[0] < pageWidth * FINISH_THRESHOLD);
   flipInstance.isLifting = isTap && flipInstance.completes;
   if (flipInstance.completes) {
+    playDropSound();
     flipInstance.target = flipInstance.isLifting ? liftedCornerTarget(flipInstance) : [0, flipInstance.cornerY];
   } else {
     flipInstance.target = flipInstance.corner.slice();
@@ -1239,6 +1274,7 @@ function flipPage(direction, options = {}) {
   if (direction > 0 ? flippedSheets >= sheetCount : flippedSheets <= 0) return;
   if (isPhoneLayout && (direction > 0 ? phoneView === "left" : phoneView === "right")) return;
   if (flipInstance.active && flipInstance.mode === "anim") return;
+
   if (flipInstance.active && flipInstance.direction !== direction) finishFlip(false);
   if (!flipInstance.active) startFlip(direction, pageHeight, options.faceOverrides);
   
@@ -1249,7 +1285,8 @@ function flipPage(direction, options = {}) {
   flipInstance.isLifting = true;
   flipInstance.isLeaving = false;
   flipInstance.target = liftedCornerTarget(flipInstance);
-
+  
+  playFlipSound();
   requestFrame();
 }
 
@@ -1258,15 +1295,14 @@ function navigate(direction) {
   if (isPhoneLayout && !(flipInstance.active && flipInstance.mode === "anim")) {
     if (direction > 0 && phoneView === "left") {
       if (flippedSheets < sheetCount) setPhoneView("right");
-
       return;
     }
 
     if (direction < 0 && phoneView === "right") {
       if (flippedSheets > 0) setPhoneView("left");
-
       return;
     }
+
   }
   flipPage(direction);
 }
@@ -1447,12 +1483,12 @@ function AddPagesFromData(pages, data) {
     const studentsHtml = students.map(student => `
       <div class="student-container">
         <div class="image-wrapper" style="transform: rotate(${getRandomRotation()}deg);">
-          <img class="grad-pic" src="${convertDriveLinkToEmbed(student["Image URL (Drive)"]) || getRandomPlaceholder()}" alt="${student.Name}">
-          <img src="${getRandomImageFrame()}">
-          ${student["Overlay Image URL (G Drive)"] && student["Overlay Image URL (G Drive)"].trim() !== "" ? `<img class="overlay" src="${convertDriveLinkToEmbed(student["Overlay Image URL (G Drive)"])}">` : ''}
-${student["Portfolio Link"] && student["Portfolio Link"].trim() !== "" ? `<div class="student-link" onclick="openPortfolio('${student["Portfolio Link"]}')"></div>` : ''}        </div>
+          <img class="grad-pic select-none" src="${convertDriveLinkToEmbed(student["Image URL (Drive)"]) || getRandomPlaceholder()}" alt="${student.Name}">
+          <img class="select-none" src="${getRandomImageFrame()}">
+          ${student["Overlay Image URL (G Drive)"] && student["Overlay Image URL (G Drive)"].trim() !== "" ? `<img class="overlay select-none" src="${convertDriveLinkToEmbed(student["Overlay Image URL (G Drive)"])}">` : ''}
+          ${student["Portfolio Link"] && student["Portfolio Link"].trim() !== "" ? `<div class="student-link" onclick="openPortfolio('${student["Portfolio Link"]}')"></div>` : ''}        </div>
         <div class="student-info">
-          <div class="student-name">${student.Name}</div>
+          <div class="student-name">${student["Preferred Name"] && student["Preferred Name"].trim() !== "" ? student["Preferred Name"] : student.Name}</div>
           ${student.Quote && student.Quote.trim() !== "" ? `<div class="student-quote">"${student.Quote}"</div>` : ''}
         </div>
       </div>
@@ -1627,10 +1663,12 @@ async function initialize() {
 
   previousButton.onclick = () => navigate(-1);
   nextButton.onclick = () => navigate(1);
+
   addEventListener("keydown", (event) => {
     if (event.key === "ArrowRight") navigate(1);
     else if (event.key === "ArrowLeft") navigate(-1);
   });
+
   addEventListener("resize", layoutBook);
   
   layoutBook();

@@ -478,18 +478,20 @@ body {
     box-sizing: border-box;
 }
 
+.select-none{
+    -webkit-user-drag: none !important;
+    user-select: none !important;
+    -moz-user-select: none !important;
+    -webkit-user-select: none !important;
+    -ms-user-select: none !important;
+}
+
 .graduates-page .image-wrapper {
     width: 100%;
     aspect-ratio: var(--gradpic-ratio);
     /* border: 0.05em solid white; */
     box-sizing: border-box;
     position: relative;
-    
-    -webkit-user-drag: none;
-    user-select: none;
-    -moz-user-select: none;
-    -webkit-user-select: none;
-    -ms-user-select: none;
 }
 
 .graduates-page .student-container img {
@@ -561,7 +563,7 @@ body {
     right: 7.5%;
     
     cursor: pointer;
-
+    
     background-image: url(../img/potfolio-icon.png);
     background-repeat: no-repeat;
     background-size: contain;
