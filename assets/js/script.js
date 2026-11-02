@@ -96,6 +96,7 @@ const flapShadeStrip = byClass(flapLayer, ".shade-strip");
 const frontShadeStrip = byClass(frontLayer, ".shade-strip");
 const underShadeStrip = byClass(underShadowBox, ".shade-strip");
 const previousButton = byId("previous-button");
+const tocButton = byId("toc-button");
 const nextButton = byId("next-button");
 const pageLabel = byId("page-label");
 
@@ -1041,7 +1042,7 @@ function handlePointerDown(event) {
 
   if (event.pointerType === "mouse" && event.button !== 0) return;
   if (event.target.closest(".student-link")) return;
-  if (event.target.closest(".toc-button")) return;
+  if (event.target.closest(".toc-button-link")) return;
 
   cancelSkip(false); 
   
@@ -1311,6 +1312,7 @@ function navigate(direction) {
 //   skipToPage(8, { instant: true });
 //   skipToPage(8).then((arrived) => console.log(arrived));
 function skipToPage(pageNumber, options = {}) {
+  if(flipInstance.active) return;
   cancelSkip(false);
 
   return new Promise((resolve) => {
@@ -1551,6 +1553,7 @@ async function initialize() {
   
   if (stage == null) return;
   if (previousButton == null) return;
+  if (tocButton == null) return;
   if (nextButton == null) return;
   
   const sheetData = await loadSheetData();
@@ -1572,15 +1575,29 @@ async function initialize() {
     cover: true,
     html: `<img class="background-image" src="./assets/img/front-op.png">`,
   });
-
+  
+  
+  tocPages.push({name: "Disclaimer", pageNumber: bookPages.length});
+    
   bookPages.push({
-    html: ``,
+    html: `
+    <img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">
+    <div class="graduates-page">
+      <div class="message">
+         <b>DISCLAIMER</b><br><br>This digital yearbook is a non-official, student-led project made as a personal gift for the Class of 2026. 
+         It is not affiliated with, endorsed by, or connected to CIIT College of Innovation and Integrated Technology in any way. 
+         All photos, text, and media were voluntarily submitted by the student community.
+      </div>
+    </div>
+    `,
   });
-
+  
   bookPages.push({
     html: `<img class="background-image" style="opacity: 0.4" src="./assets/img/inter-left.png">`,
   });
   
+  tocPages.push({name: "Table of Contents", pageNumber: bookPages.length});
+
   bookPages.push({
     html: `table of contents`,
   });
@@ -1602,16 +1619,39 @@ async function initialize() {
   });
   
   AddPagesFromData(bookPages, sheetData);
+  
+  bookPages.push({
+    html: `
+    <img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">
+    <div class="graduates-page">
+      <div class="message">
+        hello class of '26,
+        <br><br>
+        we finally graduated! congrats to us fr fr
+        <br><br>
+        since we didn't get a batch yearbook (not sure),<br>
+        i built this site so we'd have a space to save our memories together. 
+        think of it as a small parting gift from me to our batch.
+        <br><br>
+        padayon.
+        <br><br>
+        - nate
+      </div>
+    </div>
+    `,
+  });
 
   bookPages.push({
     cover: true,
     html: `<img class="background-image" src="./assets/img/back-op.png">`,
   });
+
   bookPages.push({
     cover: true,
     html: `<img class="background-image" src="./assets/img/back.png">`,
   });
   
+
   // every sheet needs two faces. If the count is odd, add a blank page before the back cover.
   if (bookPages.length % 2 !== 0) {
     bookPages.splice(bookPages.length - 2, 0, { html: "" });
@@ -1621,7 +1661,7 @@ async function initialize() {
 
   let tocLinksHtml = "";
   tocPages.forEach((currentTocData) => {
-    tocLinksHtml += `<div><span class="toc-button" onclick="goToPage(${currentTocData.pageNumber})">${currentTocData.pageNumber} - ${currentTocData.name}</span></div><br>`;
+    tocLinksHtml += `<div><span class="toc-button-link" onclick="goToPage(${currentTocData.pageNumber})">${currentTocData.pageNumber} - ${currentTocData.name}</span></div><br>`;
   });
   
   bookPages[tocIndex] = {
@@ -1670,10 +1710,11 @@ async function initialize() {
       requestFrame();
     }
   });
-
+  
   previousButton.onclick = () => navigate(-1);
+  tocButton.onclick = () => skipToPage(tocIndex, {instantAnimate: true});
   nextButton.onclick = () => navigate(1);
-
+  
   addEventListener("keydown", (event) => {
     if (event.key === "ArrowRight") navigate(1);
     else if (event.key === "ArrowLeft") navigate(-1);
@@ -1684,7 +1725,7 @@ async function initialize() {
   layoutBook();
   
   //skipToPage(17, {instantAnimate: true});
-  skipToPage(3, {instant: true});
+  //skipToPage(2, {instant: true});
 }
 
 initialize();
