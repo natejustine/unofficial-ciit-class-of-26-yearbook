@@ -389,7 +389,7 @@ body {
 
 @media (max-width: 756px) {
     .grain-overlay {
-        background-size: 75px;
+        display: none;
     }
 
     #controls {
