@@ -552,3 +552,21 @@ body {
     line-clamp: 5; 
     overflow: hidden;
 } */
+
+.student-link{
+    position: absolute;
+    height: 7%;
+    width: 7%;
+    bottom: 4.8%;
+    right: 7.5%;
+    
+    cursor: pointer;
+
+    background-image: url(../img/potfolio-icon.png);
+    background-repeat: no-repeat;
+    background-size: contain;
+
+    opacity: 0.75;
+
+    z-index: 210;
+}

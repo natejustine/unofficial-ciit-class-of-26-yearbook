@@ -250,6 +250,18 @@ function getRandomRotation(){
     return (Math.random() * (maxRotation - minRotation) + minRotation).toFixed(2);
 };
 
+function openPortfolio(url) {
+    if (!url) return;
+    let trimmedUrl = url.trim();
+    
+    // Check if it already has http:// or https://, if not, prepend https://
+    if (!/^https?:\/\//i.test(trimmedUrl)) {
+        trimmedUrl = 'https://' + trimmedUrl;
+    }
+    
+    window.open(trimmedUrl, '_blank');
+}
+
 // #endregion
 
 function createFace(faceIndex, bookPages) {
@@ -994,6 +1006,7 @@ function handlePointerDown(event) {
   }
 
   if (event.pointerType === "mouse" && event.button !== 0) return;
+  if (event.target.closest(".student-link")) return;
   if (event.target.closest(".toc-button")) return;
 
   cancelSkip(false); 
@@ -1437,7 +1450,7 @@ function AddPagesFromData(pages, data) {
           <img class="grad-pic" src="${convertDriveLinkToEmbed(student["Image URL (Drive)"]) || getRandomPlaceholder()}" alt="${student.Name}">
           <img src="${getRandomImageFrame()}">
           ${student["Overlay Image URL (G Drive)"] && student["Overlay Image URL (G Drive)"].trim() !== "" ? `<img class="overlay" src="${convertDriveLinkToEmbed(student["Overlay Image URL (G Drive)"])}">` : ''}
-        </div>
+${student["Portfolio Link"] && student["Portfolio Link"].trim() !== "" ? `<div class="student-link" onclick="openPortfolio('${student["Portfolio Link"]}')"></div>` : ''}        </div>
         <div class="student-info">
           <div class="student-name">${student.Name}</div>
           ${student.Quote && student.Quote.trim() !== "" ? `<div class="student-quote">"${student.Quote}"</div>` : ''}
