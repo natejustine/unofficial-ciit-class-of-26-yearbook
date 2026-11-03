@@ -129,8 +129,9 @@ let faces = null;
 const cs = "aHR0cHM6Ly9kb2NzLmdvb2dsZS5jb20vc3ByZWFkc2hlZXRzL2QvZS8=";
 const vu = "MlBBQ1gtMXZRNjRXbldZQXgtN2N0Vzg4Q1FhWENnS3BhV1NXNTBsa1VmbS1OVFhzaHd4Sm9UelJzSmFSaUNBMU5YSmZnQnhHa2RyNWxEd2tnaGFGM08v";
 const rl = "cHViP291dHB1dD1jc3Y=";
-const gid1 = '0';
-const gid2 = '1879836969';
+const gidMain = '0';
+const gidFeature = '1879836969';
+const gidFeatureNew = '1185477587';
 
 const placeholders = [
   'placeholder.jpg'
@@ -184,9 +185,10 @@ function csvToJson(csvString) {
 
 async function loadSheetDataColumns() {
   try {
-    const response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=` + gid2);
+    const response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=` + gidFeatureNew);
     const csvText = await response.text();
-    return csvToColumnJson(csvText);
+    //return csvToColumnJson(csvText);
+    return csvToNestedColumnJson(csvText, 2)
   } catch (error) {
     console.error("Error loading data:", error);
   }
@@ -221,6 +223,78 @@ function csvToColumnJson(csvString) {
     arr.length = lastValid + 1;
   });
   
+  return columnData;
+}
+
+function csvToNestedColumnJson(csvString, headerRowsCount = 2) {
+  const rawRows = csvString.trim().split(/\r\n|\n|\r/);
+  const rows = rawRows.map((row) => parseCSVLine(row));
+  if (rows.length <= headerRowsCount) return {};
+
+  const headers = rows.slice(0, headerRowsCount);
+  const numCols = Math.max(...rows.map((row) => row.length));
+
+  for (let r = 0; r < headers.length; r++) {
+    let lastValidVal = "";
+    for (let c = 0; c < numCols; c++) {
+      const current = (headers[r][c] || "").trim();
+      if (current !== "") {
+        lastValidVal = current;
+      } else {
+        headers[r][c] = lastValidVal;
+      }
+    }
+  }
+
+  const columnData = {}; 
+  
+  const colTargetArrays = new Array(numCols);
+
+  for (let c = 0; c < numCols; c++) {
+    const path = headers.map((hRow) => hRow[c]).filter(Boolean);
+    if (path.length === 0) continue;
+
+    let currentLevel = columnData;
+    for (let i = 0; i < path.length - 1; i++) {
+      const key = path[i];
+      if (!currentLevel[key]) {
+        currentLevel[key] = {};
+      }
+      currentLevel = currentLevel[key];
+    }
+    const leafKey = path[path.length - 1];
+    if (!currentLevel[leafKey]) {
+      currentLevel[leafKey] = [];
+    } 
+    colTargetArrays[c] = currentLevel[leafKey];
+  } 
+
+  for (let i = headerRowsCount; i < rows.length; i++) {
+    const values = rows[i];
+    for (let c = 0; c < numCols; c++) {
+      const targetArray = colTargetArrays[c];
+      if (targetArray) {
+        targetArray.push(values[c] || "");
+      }
+    }
+  } 
+
+  function trimArrays(obj) {
+    for (const key in obj) {
+      if (Array.isArray(obj[key])) {
+        const arr = obj[key];
+        let lastValid = arr.length - 1;
+        while (lastValid >= 0 && arr[lastValid] === "") {
+          lastValid--;
+        }
+        arr.length = lastValid + 1;
+      } else if (typeof obj[key] === "object" && obj[key] !== null) {
+        trimArrays(obj[key]);
+      }
+    }
+  }
+
+  trimArrays(columnData);
   return columnData;
 }
 
@@ -341,6 +415,10 @@ function playDropSound() {
 function playPickSound(){
   pagePickSound.currentTime = 0;
   pagePickSound.play();
+}
+
+function getAspectRatio(width, height) {
+    return width / height || 1;
 }
 
 // #endregion
@@ -1776,24 +1854,28 @@ async function layoutCollage(holder) {
         images.push(img);
     }
     
-    // TODO: use the google sheet script
+    const aspectRatios = [];
     for (let i = 0; i < images.length; i++) {
+        
+        const image = images[i];
+
+        if (image.hasAttribute("ratio")) {
+          const ratio = parseFloat(image.getAttribute("ratio"));
+          aspectRatios.push(ratio);
+          continue;
+        }
+        
         try {
-            await images[i].decode();
+            await image.decode();
         } catch (error) {
             
         }
-    }
 
-    const aspectRatios = [];
-    for (let i = 0; i < images.length; i++) {
-        const width = images[i].naturalWidth;
-        const height = images[i].naturalHeight;
+        const width = image.naturalWidth;
+        const height = image.naturalHeight;
+
+        const ratio = getAspectRatio(width, height);
         
-        let ratio = 1;
-        if (height > 0) {
-            ratio = width / height;
-        }
         aspectRatios.push(ratio);
     }
   
@@ -1830,17 +1912,22 @@ async function relayoutFeaturedPhotos(faces){
 
 function AddProgramPicturesFromData(pages, picturesData, key) {
   if (!picturesData || typeof picturesData !== 'object') return;
-  if (!Object.prototype.hasOwnProperty.call(picturesData, key)) return;
+
+  const programData = picturesData[key]; 
+
+  if(programData == null) return;
   
   let currentBatch = [];
-  const urls = picturesData[key]; 
   
+  const urls = programData["Drive Link"];
+    
   if (urls && urls.length > 0) {
-    for (const url of urls) {
-      currentBatch.push(url);
+    for (var i = 0; i < urls.length; i++) {
+      var url = urls[i];
+      currentBatch.push({url: url, title: programData["Short Title (Optional)"][i], w: programData["width"][i], h: programData["height"][i]});
       
       if (currentBatch.length === programPicturesPerPage) {
-        const pageHtml = createFeaturedPicturesPage(currentBatch);
+        var pageHtml = createFeaturedPicturesPage(currentBatch);
         pages.push({ html: pageHtml });
         currentBatch = [];
       }
@@ -1852,19 +1939,29 @@ function AddProgramPicturesFromData(pages, picturesData, key) {
   }
 }
 
-function createPicturesHolder(photoUrls){
+function createPicturesHolder(photoData){
   const holder = document.createElement("div");
   holder.className = "program-feature-holder";
   holder.id = "program-feature-holder";
   
-  photoUrls.forEach((url) => {
+  photoData.forEach((data) => {
     const photoHolder = document.createElement("div");
     photoHolder.className = "feature-image-wrapper";
     
     const img = document.createElement("img");
     img.className = "select-none";
-    img.src = convertDriveLinkToEmbed(url) || getRandomPlaceholder();
-    img.style = `transform: rotate(${getRandomRotation()}deg)`
+    img.src = convertDriveLinkToEmbed(data.url) || getRandomPlaceholder();
+    if(data.title && data.title.trim() !== "") img.alt = data.title;
+    img.style = `transform: rotate(${getRandomRotation()}deg)`;
+
+    if(data.w && data.w.trim() !== "" && data.h && data.h.trim() !== ""){
+      const width = parseFloat(data.w);
+      const height = parseFloat(data.h);
+      
+      const ratio = getAspectRatio(width, height);
+
+      img.setAttribute('ratio', ratio.toString());
+    }
     
     photoHolder.appendChild(img);
     holder.appendChild(photoHolder);
@@ -1873,10 +1970,10 @@ function createPicturesHolder(photoUrls){
   return holder;
 }
 
-function createFeaturedPicturesPage(photoUrls){
-  if (photoUrls.length === 0) return;
+function createFeaturedPicturesPage(photoData){
+  if (photoData.length === 0) return;
     
-  const holder = createPicturesHolder(photoUrls);
+  const holder = createPicturesHolder(photoData);
   
   return `
             <img class="background-image" src="./assets/img/bg.jpg">
@@ -1909,7 +2006,7 @@ function AddStudentPagesFromData(pages, studentData, picturesData) {
       <div class="student-container">
         <div class="student-image-wrapper" style="transform: rotate(${getRandomRotation()}deg);">
           <img class="grad-pic select-none" src="${convertDriveLinkToEmbed(student["Image URL (Drive)"]) || getRandomPlaceholder()}" alt="${student.Name}">
-          <img class="select-none" src="${getRandomImageFrame()}">
+          <img draggable="false" class="select-none" src="${getRandomImageFrame()}">
           ${student["Overlay Image URL (G Drive)"] && student["Overlay Image URL (G Drive)"].trim() !== "" ? `<img class="overlay select-none" src="${convertDriveLinkToEmbed(student["Overlay Image URL (G Drive)"])}">` : ''}
           ${student["Portfolio Link"] && student["Portfolio Link"].trim() !== "" ? `<div class="student-link" onclick="openPortfolio('${student["Portfolio Link"]}')"></div>` : ''}        </div>
         <div class="student-info">
