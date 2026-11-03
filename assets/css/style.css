@@ -24,6 +24,8 @@
     --featured-gap: 4%;
 
     --gradpic-ratio: 4 / 5;
+    
+    --load-progress: 0;
 
     color-scheme: dark;
     box-sizing: border-box;
@@ -96,7 +98,7 @@ body {
     height: 200vh;
     left: -50%;
     top: -50%;
-    z-index: 200 !important;
+    z-index: 250 !important;
     pointer-events: none;
     background-size: 100px;
     opacity: 0.2; 
@@ -635,4 +637,69 @@ body {
     border: 0.3em solid #ebe8e8;
     box-sizing: border-box;
     filter: drop-shadow(-0.1em 0.1em 0.2em #0000003b);
+}
+
+.loading-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background-color: white !important;
+    z-index: 249;
+    
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 1s ease, visibility 1s ease;
+}
+
+.loading-screen.hidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.loading-content {
+    width: 300px; 
+    font-size: 1em;
+    font-family: "Montserrat", sans-serif;
+    color: var(--page-color);
+    text-transform: uppercase;
+    text-align: center;
+    text-shadow: none;
+    
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    box-sizing: border-box;
+}
+
+.loader {
+    --color-1: rgba(74, 82, 226, 0.15);
+    --size: 0.75px;
+    
+    width: 100%;
+    height: calc(4.8 * var(--size));
+    display: inline-block;
+    background: var(--color-1);
+    position: relative;
+    overflow: hidden;
+}
+
+.loader::after {
+    content: '';
+    width: calc(var(--load-progress, 0) * 100%);
+    height: calc(4.8 * var(--size));
+    background-color: var(--page-color);
+    background-size: calc(15 * var(--size)) calc(15 * var(--size));
+    position: absolute;
+    top: 0;
+    left: 0;
+    box-sizing: border-box;
+    
+    transition: width 0.4s ease-out;
 }

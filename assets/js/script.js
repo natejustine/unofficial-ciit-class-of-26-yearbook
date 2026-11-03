@@ -79,6 +79,9 @@ const CAST_SHADOW_ALPHA = 0.4; // darkness of the shadow a lifted page casts ont
 const byId = (id) => document.getElementById(id);
 const byClass = (container, className) => container.querySelector(className);
 
+const loadingScreen = byClass(document.documentElement, ".loading-screen");
+const loadingText = byClass(loadingScreen, ".loading-text");
+
 const stage = byId("stage");
 const zoomLayer = byId("zoom-layer");
 const book = byId("book");
@@ -2068,21 +2071,26 @@ function AddStudentPagesFromData(pages, studentData, picturesData) {
   }
 }
 
+function updateLoading(text, percent){
+  loadingText.textContent = text;
+  document.documentElement.style.setProperty('--load-progress', percent);
+}
+
 async function initialize() {
-  
-  
   if (stage == null) return;
   if (previousButton == null) return;
   if (tocButton == null) return;
   if (nextButton == null) return;
   
+  updateLoading("Loading Database", '0.1');
+
   const studentSheetData = await loadSheetDataRows();
   
   const picsSheetData = await loadSheetDataColumns();
 
   await loadSheetDataColumns();
   
-  console.log("Data Loaded");
+  updateLoading("Building Book", '0.3');
 
   const bookPages = [];
 
@@ -2209,6 +2217,8 @@ async function initialize() {
   faces = Array.from({ length: faceCount }, (unusedItem, faceIndex) =>
     createFace(faceIndex, bookPages),
   );
+  
+  updateLoading("Registering Events...", '0.7');
 
   stage.addEventListener("contextmenu", (event) => event.preventDefault());
   addEventListener("blur", stopZoom);
@@ -2251,11 +2261,25 @@ async function initialize() {
   addEventListener("resize", layoutBook);
   
   layoutBook();
+  
+  updateLoading("Fitting boxes into boxes...", '0.9');
+  
+  await relayoutFeaturedPhotos(faces);
+  
+  updateLoading("Welcome", '1');
 
-  await relayoutFeaturedPhotos(faces);  
+  await sleep(2000);
+
+  loadingScreen.classList.add("hidden");
+
+  await sleep(1000);
+
+  loadingScreen.style.display = "none";
   //skipToPage(17, {instantAnimate: true});
   //skipToPage(68, {instant: true});
 }
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 initialize();
 
