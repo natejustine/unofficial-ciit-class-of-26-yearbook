@@ -1950,13 +1950,13 @@ function createPicturesHolder(photoData){
   photoData.forEach((data) => {
     const photoHolder = document.createElement("div");
     photoHolder.className = "feature-image-wrapper";
-    
+    photoHolder.style = `transform: rotate(${getRandomRotation()}deg)`;
+
     const img = document.createElement("img");
     img.className = "select-none";
+    img.setAttribute("draggable", "false");
     img.src = convertDriveLinkToEmbed(data.url) || getRandomPlaceholder();
-    if(data.title && data.title.trim() !== "") img.alt = data.title;
-    img.style = `transform: rotate(${getRandomRotation()}deg)`;
-
+    
     if(data.w && data.w.trim() !== "" && data.h && data.h.trim() !== ""){
       const width = parseFloat(data.w);
       const height = parseFloat(data.h);
@@ -1967,6 +1967,16 @@ function createPicturesHolder(photoData){
     }
     
     photoHolder.appendChild(img);
+    
+    if(data.title && data.title.trim() !== ""){ 
+      img.alt = data.title;
+      const text = document.createElement("p");
+      text.className = "feature-caption";
+      text.textContent = data.title;
+    
+      photoHolder.appendChild(text);
+    };
+    
     holder.appendChild(photoHolder);
   });
   
@@ -2008,9 +2018,9 @@ function AddStudentPagesFromData(pages, studentData, picturesData) {
     const studentsHtml = students.map(student => `
       <div class="student-container">
         <div class="student-image-wrapper" style="transform: rotate(${getRandomRotation()}deg);">
-          <img class="grad-pic select-none" src="${convertDriveLinkToEmbed(student["Image URL (Drive)"]) || getRandomPlaceholder()}" alt="${student.Name}">
+          <img draggable="false" class="grad-pic select-none" src="${convertDriveLinkToEmbed(student["Image URL (Drive)"]) || getRandomPlaceholder()}" alt="${student.Name}">
           <img draggable="false" class="select-none" src="${getRandomImageFrame()}">
-          ${student["Overlay Image URL (G Drive)"] && student["Overlay Image URL (G Drive)"].trim() !== "" ? `<img class="overlay select-none" src="${convertDriveLinkToEmbed(student["Overlay Image URL (G Drive)"])}">` : ''}
+          ${student["Overlay Image URL (G Drive)"] && student["Overlay Image URL (G Drive)"].trim() !== "" ? `<img draggable="false" class="overlay select-none" src="${convertDriveLinkToEmbed(student["Overlay Image URL (G Drive)"])}">` : ''}
           ${student["Portfolio Link"] && student["Portfolio Link"].trim() !== "" ? `<div class="student-link" onclick="openPortfolio('${student["Portfolio Link"]}')"></div>` : ''}        </div>
         <div class="student-info">
           <div class="student-name">${student["Preferred Name"] && student["Preferred Name"].trim() !== "" ? student["Preferred Name"] : student.Name}</div>
@@ -2276,7 +2286,7 @@ async function initialize() {
 
   loadingScreen.style.display = "none";
   //skipToPage(17, {instantAnimate: true});
-  //skipToPage(68, {instant: true});
+  //skipToPage(64, {instant: true});
 }
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));

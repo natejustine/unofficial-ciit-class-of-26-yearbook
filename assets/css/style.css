@@ -626,6 +626,7 @@ body {
 
 .feature-image-wrapper {
     position: absolute;
+    container-type: size;
 }
 
 .feature-image-wrapper img {
@@ -637,6 +638,20 @@ body {
     border: 0.3em solid #ebe8e8;
     box-sizing: border-box;
     filter: drop-shadow(-0.1em 0.1em 0.2em #0000003b);
+}
+
+.feature-image-wrapper p {
+    position: absolute;
+    bottom: 2.5%;  
+    left: 2.5%; 
+    margin: 0;
+    
+    font-size: 2.5cqw; 
+    
+    color: white;
+    font-family: "Montserrat", sans-serif;
+    text-align: left;
+    pointer-events: none;
 }
 
 .loading-screen {
