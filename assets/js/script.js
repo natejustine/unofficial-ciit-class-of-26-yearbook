@@ -79,6 +79,9 @@ const CAST_SHADOW_ALPHA = 0.4; // darkness of the shadow a lifted page casts ont
 const byId = (id) => document.getElementById(id);
 const byClass = (container, className) => container.querySelector(className);
 
+const loadingScreen = byClass(document.documentElement, ".loading-screen");
+const loadingText = byClass(loadingScreen, ".loading-text");
+
 const stage = byId("stage");
 const zoomLayer = byId("zoom-layer");
 const book = byId("book");
@@ -101,6 +104,7 @@ const nextButton = byId("next-button");
 const pageLabel = byId("page-label");
 
 const studentsPerPage = 6;
+const programPicturesPerPage = 6;
 const minRotation = -3;
 const maxRotation = 3;
 
@@ -128,6 +132,9 @@ let faces = null;
 const cs = "aHR0cHM6Ly9kb2NzLmdvb2dsZS5jb20vc3ByZWFkc2hlZXRzL2QvZS8=";
 const vu = "MlBBQ1gtMXZRNjRXbldZQXgtN2N0Vzg4Q1FhWENnS3BhV1NXNTBsa1VmbS1OVFhzaHd4Sm9UelJzSmFSaUNBMU5YSmZnQnhHa2RyNWxEd2tnaGFGM08v";
 const rl = "cHViP291dHB1dD1jc3Y=";
+const gidMain = '0';
+const gidFeature = '1879836969';
+const gidFeatureNew = '1185477587';
 
 const placeholders = [
   'placeholder.jpg'
@@ -149,9 +156,9 @@ const tocPages = [];
 
 // #region Loading CSV
 
-async function loadSheetData() {
+async function loadSheetDataRows() {
   try {
-    const response = await fetch(atob(cs) + atob(vu) + atob(rl));
+    const response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=0`);
     const csvText = await response.text();
     
     //console.log(csvToJson(csvText));
@@ -159,6 +166,139 @@ async function loadSheetData() {
   } catch (error) {
     console.error("Error loading data:", error);
   }
+}
+
+function csvToJson(csvString) {
+  const rows = csvString.trim().split(/\r?\n/);
+  if (rows.length === 0) return [];
+  
+  const headers = parseCSVLine(rows[0]);
+  
+  const jsonData = rows.slice(1).map((row) => {
+    const values = parseCSVLine(row);
+    
+    return headers.reduce((obj, header, index) => {
+      obj[header] = values[index] || "";
+      return obj;
+    }, {});
+  });
+  
+  return jsonData;
+}
+
+async function loadSheetDataColumns() {
+  try {
+    const response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=` + gidFeatureNew);
+    const csvText = await response.text();
+    //return csvToColumnJson(csvText);
+    return csvToNestedColumnJson(csvText, 2)
+  } catch (error) {
+    console.error("Error loading data:", error);
+  }
+}
+
+function csvToColumnJson(csvString) {
+  const rows = csvString.trim().split(/\r\n|\n|\r/).filter(row => row.trim() !== "");
+  if (rows.length <= 1) return {};
+  
+  const headers = parseCSVLine(rows[0]);
+  const columnData = {};
+  
+  headers.forEach(header => {
+    columnData[header] = [];
+  });
+  
+  for (let i = 1; i < rows.length; i++) {
+    const values = parseCSVLine(rows[i]);
+    headers.forEach((header, index) => {
+      columnData[header].push(values[index] || "");
+    });
+  }
+  
+  headers.forEach(header => {
+    const arr = columnData[header];
+    let lastValid = arr.length - 1;
+    
+    while (lastValid >= 0 && arr[lastValid] === "") {
+      lastValid--;
+    }
+    
+    arr.length = lastValid + 1;
+  });
+  
+  return columnData;
+}
+
+function csvToNestedColumnJson(csvString, headerRowsCount = 2) {
+  const rawRows = csvString.trim().split(/\r\n|\n|\r/);
+  const rows = rawRows.map((row) => parseCSVLine(row));
+  if (rows.length <= headerRowsCount) return {};
+
+  const headers = rows.slice(0, headerRowsCount);
+  const numCols = Math.max(...rows.map((row) => row.length));
+
+  for (let r = 0; r < headers.length; r++) {
+    let lastValidVal = "";
+    for (let c = 0; c < numCols; c++) {
+      const current = (headers[r][c] || "").trim();
+      if (current !== "") {
+        lastValidVal = current;
+      } else {
+        headers[r][c] = lastValidVal;
+      }
+    }
+  }
+
+  const columnData = {}; 
+  
+  const colTargetArrays = new Array(numCols);
+
+  for (let c = 0; c < numCols; c++) {
+    const path = headers.map((hRow) => hRow[c]).filter(Boolean);
+    if (path.length === 0) continue;
+
+    let currentLevel = columnData;
+    for (let i = 0; i < path.length - 1; i++) {
+      const key = path[i];
+      if (!currentLevel[key]) {
+        currentLevel[key] = {};
+      }
+      currentLevel = currentLevel[key];
+    }
+    const leafKey = path[path.length - 1];
+    if (!currentLevel[leafKey]) {
+      currentLevel[leafKey] = [];
+    } 
+    colTargetArrays[c] = currentLevel[leafKey];
+  } 
+
+  for (let i = headerRowsCount; i < rows.length; i++) {
+    const values = rows[i];
+    for (let c = 0; c < numCols; c++) {
+      const targetArray = colTargetArrays[c];
+      if (targetArray) {
+        targetArray.push(values[c] || "");
+      }
+    }
+  } 
+
+  function trimArrays(obj) {
+    for (const key in obj) {
+      if (Array.isArray(obj[key])) {
+        const arr = obj[key];
+        let lastValid = arr.length - 1;
+        while (lastValid >= 0 && arr[lastValid] === "") {
+          lastValid--;
+        }
+        arr.length = lastValid + 1;
+      } else if (typeof obj[key] === "object" && obj[key] !== null) {
+        trimArrays(obj[key]);
+      }
+    }
+  }
+
+  trimArrays(columnData);
+  return columnData;
 }
 
 function parseCSVLine(text) {
@@ -189,23 +329,6 @@ function parseCSVLine(text) {
   return result;
 }
 
-function csvToJson(csvString) {
-  const rows = csvString.trim().split(/\r?\n/);
-  if (rows.length === 0) return [];
-  
-  const headers = parseCSVLine(rows[0]);
-  
-  const jsonData = rows.slice(1).map((row) => {
-    const values = parseCSVLine(row);
-    
-    return headers.reduce((obj, header, index) => {
-      obj[header] = values[index] || "";
-      return obj;
-    }, {});
-  });
-  
-  return jsonData;
-}
 
 // #endregion
 
@@ -220,12 +343,12 @@ function convertDriveLinkToEmbed(input) {
   // - /open?id=FILE_ID
   const driveRegex =
     /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=|[^\/]+\/[^\/]+\/d\/)([a-zA-Z0-9_-]{25,}))|(?:id=([a-zA-Z0-9_-]{25,}))/;
-
+  
   const match = input.trim().match(driveRegex);
-
+  
   // match[1] captures the ID from standard paths, match[2] captures from query parameters if needed
   const fileId = match ? match[1] || match[2] : null;
-
+  
   if (!fileId) {
     // fallback: If the input itself is just a bare file ID string (25+ alphanumeric/dash/underscore chars)
     const bareIdRegex = /^[a-zA-Z0-9_-]{25,}$/;
@@ -234,7 +357,7 @@ function convertDriveLinkToEmbed(input) {
     }
     return input; //fail
   }
-
+  
   return `https://lh3.googleusercontent.com/d/${fileId}`;
 }
 
@@ -295,6 +418,10 @@ function playDropSound() {
 function playPickSound(){
   pagePickSound.currentTime = 0;
   pagePickSound.play();
+}
+
+function getAspectRatio(width, height) {
+    return width / height || 1;
 }
 
 // #endregion
@@ -514,9 +641,6 @@ function layoutBook() {
   updateControls();
 }
 
-// ============================================================
-// Starting and finishing a flip
-// ============================================================
 // direction: +1 = turn a page from right to left, -1 = turn it back. cornerY: 0 (top) or pageHeight (bottom).
 function startFlip(direction, cornerY, faceOverrides = {}) {
   if (book == null) return;
@@ -1463,8 +1587,417 @@ function goToPage(pageNumber){
 
 //#endregion
 
-function AddPagesFromData(pages, data) {
-  if (!data || data.length === 0) {
+//#region layout featured photos
+
+function createTable(rowCount, columnCount, fillValue) {
+  const table = [];
+  
+  for (let r = 0; r < rowCount; r++) {
+      const row = [];
+      for (let c = 0; c < columnCount; c++) {
+          row.push(fillValue);
+      }
+      table.push(row);
+  }
+  
+  return table;
+}
+
+// rowHeightTable[startIndex][endIndex] = height of a row holding photos
+// startIndex .. endIndex-1 stretched to the full width (0 = they don't fit).
+function buildRowHeightTable(aspectRatios, innerWidth, gap) {
+    const photoCount = aspectRatios.length;
+    const rowHeightTable = createTable(photoCount + 1, photoCount + 1, 0);
+    
+    for (let startIndex = 0; startIndex < photoCount; startIndex++) {
+        let aspectRatioTotal = 0;
+        
+        for (let endIndex = startIndex + 1; endIndex <= photoCount; endIndex++) {
+            const currentAspectRatio = aspectRatios[endIndex - 1];
+            aspectRatioTotal = aspectRatioTotal + currentAspectRatio;
+            
+            const numberOfGaps = endIndex - startIndex - 1;
+            const totalGapWidth = numberOfGaps * gap;
+            const widthForPhotos = innerWidth - totalGapWidth;
+            
+            if (widthForPhotos > 0) {
+                const calculatedHeight = widthForPhotos / aspectRatioTotal;
+                rowHeightTable[startIndex][endIndex] = calculatedHeight;
+            }
+        }
+    }
+    return rowHeightTable;
+}
+
+// finds the optimal split of photos into rows matching a target height
+function findBestSplit(rowCount, photoCount, targetRowHeight, rowHeightTable) {
+    // lowestCost[rows][photos] = cheapest way to put the first `photos` into `rows`
+    const lowestCost = createTable(rowCount + 1, photoCount + 1, Infinity);
+
+    // lastRowStart[rows][photos] = where the last of those rows begins
+    const lastRowStart = createTable(rowCount + 1, photoCount + 1, -1);
+
+    lowestCost[0][0] = 0;
+
+    for (let rowNumber = 1; rowNumber <= rowCount; rowNumber++) {
+        for (let endIndex = rowNumber; endIndex <= photoCount; endIndex++) {
+            for (let startIndex = rowNumber - 1; startIndex < endIndex; startIndex++) {
+                const costBeforeThisRow = lowestCost[rowNumber - 1][startIndex];
+                const rowHeight = rowHeightTable[startIndex][endIndex];
+
+                if (costBeforeThisRow === Infinity || rowHeight === 0) continue;
+                
+                const heightRatio = rowHeight / targetRowHeight;
+                const deviation = heightRatio - 1;
+                const deviationSquared = deviation * deviation;
+                const totalCost = costBeforeThisRow + deviationSquared;
+                
+                // Update if this path is cheaper than what we found previously
+                if (totalCost < lowestCost[rowNumber][endIndex]) {
+                    lowestCost[rowNumber][endIndex] = totalCost;
+                    lastRowStart[rowNumber][endIndex] = startIndex;
+                }
+            }
+        }
+    }
+
+    const finalCost = lowestCost[rowCount][photoCount];
+
+    if (finalCost === Infinity) return null;
+
+    // walk backwards from the last row to recover every row's start and end.
+    const rows = [];
+    let currentEndIndex = photoCount;
+    
+    for (let rowNumber = rowCount; rowNumber > 0; rowNumber--) {
+        const startIndex = lastRowStart[rowNumber][currentEndIndex];
+        
+        rows.unshift({ 
+            startIndex: startIndex, 
+            endIndex: currentEndIndex 
+        });
+        
+        currentEndIndex = startIndex;
+    }
+    
+    const averageCost = finalCost / rowCount;
+    const finalScore = Math.sqrt(averageCost);
+    
+    return { 
+        rows: rows, 
+        cost: finalScore 
+    };
+}
+
+// Turns rows into x / y / width / height (pixels). Photos never stretch:
+// if the block is too tall every photo shrinks evenly, if it is too short
+// the block is centered.
+function placePhotoBoxes(rows, aspectRatios, rowHeightTable, innerWidth, innerHeight, gap, padding) {
+    
+    function sum(numbers) {
+        let total = 0;
+        for (let i = 0; i < numbers.length; i++) {
+            total += numbers[i];
+        }
+        return total;
+    }
+    
+    const naturalRowHeights = [];
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const height = rowHeightTable[row.startIndex][row.endIndex];
+        naturalRowHeights.push(height);
+    }
+
+    const totalGapHeight = (rows.length - 1) * gap;
+    const totalNaturalHeight = sum(naturalRowHeights);
+    const availableHeight = innerHeight - totalGapHeight;
+    const heightRatio = availableHeight / totalNaturalHeight;
+    const photoScale = Math.min(1, heightRatio);
+    
+    const blockHeight = sum(naturalRowHeights) * photoScale + totalGapHeight;
+    let currentY = padding + (innerHeight - blockHeight) / 2;
+
+    const boxes = [];
+    
+    rows.forEach((row, rowIndex) => {
+        const rowHeight = naturalRowHeights[rowIndex] * photoScale;
+        
+        const photoWidths = [];
+        for (let i = row.startIndex; i < row.endIndex; i++) {
+            const aspectRatio = aspectRatios[i];
+            const photoWidth = aspectRatio * rowHeight;
+            photoWidths.push(photoWidth);
+        }
+        
+        const totalPhotoWidths = sum(photoWidths);
+        const gapsInRow = photoWidths.length - 1;
+        const totalRowGapWidth = gapsInRow * gap;
+        const rowWidth = totalPhotoWidths + totalRowGapWidth;
+        
+        const horizontalSpaceDifference = innerWidth - rowWidth;
+        let currentX = padding + (horizontalSpaceDifference / 2);
+        
+        for (const width of photoWidths) {
+            boxes.push({ x: currentX, y: currentY, width, height: rowHeight });
+            currentX += width + gap;
+        }
+        currentY += rowHeight + gap;
+    });
+    
+    return {
+        boxes,
+        rowCount: rows.length,
+        leftoverFraction: 1 - Math.min(heightRatio, 1 / heightRatio), // 0 = no empty space
+    };
+}
+
+function convertBoxesToPercent(boxes, containerWidth, containerHeight) {
+    return boxes.map((box) => ({
+        x: (box.x / containerWidth) * 100,
+        y: (box.y / containerHeight) * 100,
+        width: (box.width / containerWidth) * 100,
+        height: (box.height / containerHeight) * 100,
+    }));
+}
+
+function computeLayout(aspectRatios, containerWidth, containerHeight, gap, padding) {
+  const photoCount = aspectRatios.length;
+
+  const totalPadding = padding * 2;
+  const innerWidth = containerWidth - totalPadding;
+  const innerHeight = containerHeight - totalPadding;
+
+  if (photoCount === 0) return null;
+  if (innerWidth <= 0) return null;
+  if (innerHeight <= 0) return null;
+
+  const rowHeightTable = buildRowHeightTable(aspectRatios, innerWidth, gap);
+  let bestLayout = null;
+
+  for (let rowCount = 1; rowCount <= photoCount; rowCount++) {
+    const totalGapSpace = (rowCount - 1) * gap;
+    const availableHeight = innerHeight - totalGapSpace;
+
+    if (availableHeight <= 0) break;
+
+    const targetRowHeight = availableHeight / rowCount;
+    const split = findBestSplit(
+      rowCount,
+      photoCount,
+      targetRowHeight,
+      rowHeightTable,
+    );
+
+    if (!split) continue;
+
+    const placement = placePhotoBoxes(
+      split.rows,
+      aspectRatios,
+      rowHeightTable,
+      innerWidth,
+      innerHeight,
+      gap,
+      padding,
+    );
+
+    const score = split.cost + placement.leftoverFraction;
+
+    if (bestLayout === null) {
+        // first valid layout found, store explicitly
+        bestLayout = {
+            boxes: placement.boxes,
+            leftoverFraction: placement.leftoverFraction,
+            score: score
+        };
+    } else {
+        // check if this layout has a better (lower) score than our current best
+        if (score < bestLayout.score) {
+            bestLayout = {
+                boxes: placement.boxes,
+                leftoverFraction: placement.leftoverFraction,
+                score: score
+            };
+        }
+    }
+  }
+
+  if (!bestLayout) return null;
+
+  return convertBoxesToPercent(bestLayout.boxes,  containerWidth, containerHeight); // finalPercentLayout
+}
+
+function readCssPercentAsPixels(element, variableName, referenceLength) {
+    const percent = parseFloat(getComputedStyle(element).getPropertyValue(variableName)) || 0;
+    return (percent / 100) * referenceLength;
+}
+
+function positionHolders(wrappers, boxes) {
+    wrappers.forEach((wrapper, index) => {
+        const { x, y, width, height } = boxes[index];
+        Object.assign(wrapper.style, {
+            left: x + "%",
+            top: y + "%",
+            width: width + "%",
+            height: height + "%",
+        });
+    });
+}
+
+async function layoutCollage(holder) {
+    const wrapperNodeList = holder.querySelectorAll(".feature-image-wrapper");
+    const wrappers = [];
+    for (let i = 0; i < wrapperNodeList.length; i++) {
+        wrappers.push(wrapperNodeList[i]);
+    }
+
+    const images = [];
+    for (let i = 0; i < wrappers.length; i++) {
+        const img = wrappers[i].querySelector("img");
+        images.push(img);
+    }
+    
+    const aspectRatios = [];
+    for (let i = 0; i < images.length; i++) {
+        
+        const image = images[i];
+
+        if (image.hasAttribute("ratio")) {
+          const ratio = parseFloat(image.getAttribute("ratio"));
+          aspectRatios.push(ratio);
+          continue;
+        }
+        
+        try {
+            await image.decode();
+        } catch (error) {
+            
+        }
+
+        const width = image.naturalWidth;
+        const height = image.naturalHeight;
+
+        const ratio = getAspectRatio(width, height);
+        
+        aspectRatios.push(ratio);
+    }
+  
+    const shorterSide = Math.min(pageWidth, pageHeight);
+
+    const gap = readCssPercentAsPixels(document.documentElement, "--featured-gap", shorterSide);
+    const padding = readCssPercentAsPixels(document.documentElement, "--page-padding", shorterSide);
+    
+    const layout = computeLayout(
+        aspectRatios,
+        pageWidth,
+        pageHeight,
+        gap,
+        padding
+    );
+
+    if (!layout) return null;
+    
+    positionHolders(wrappers, layout);
+    return layout;
+}
+
+async function relayoutFeaturedPhotos(faces){
+  for(const face of faces){
+    const holder = byClass(face, ".program-feature-holder");
+ 
+    if(!holder) continue;
+    
+    await layoutCollage(holder); 
+  }
+}
+
+//#endregion
+
+function AddProgramPicturesFromData(pages, picturesData, key) {
+  if (!picturesData || typeof picturesData !== 'object') return;
+
+  const programData = picturesData[key]; 
+
+  if(programData == null) return;
+  
+  let currentBatch = [];
+  
+  const urls = programData["Drive Link"];
+    
+  if (urls && urls.length > 0) {
+    for (var i = 0; i < urls.length; i++) {
+      var url = urls[i];
+      currentBatch.push({url: url, title: programData["Short Title (Optional)"][i], w: programData["width"][i], h: programData["height"][i]});
+      
+      if (currentBatch.length === programPicturesPerPage) {
+        var pageHtml = createFeaturedPicturesPage(currentBatch);
+        pages.push({ html: pageHtml });
+        currentBatch = [];
+      }
+    }
+    
+    if (currentBatch.length > 0) {
+      pages.push({ html: createFeaturedPicturesPage(currentBatch) });
+    }
+  }
+}
+
+function createPicturesHolder(photoData){
+  const holder = document.createElement("div");
+  holder.className = "program-feature-holder";
+  holder.id = "program-feature-holder";
+  
+  photoData.forEach((data) => {
+    const photoHolder = document.createElement("div");
+    photoHolder.className = "feature-image-wrapper";
+    photoHolder.style = `transform: rotate(${getRandomRotation()}deg)`;
+
+    const img = document.createElement("img");
+    img.className = "select-none";
+    img.setAttribute("draggable", "false");
+    img.src = convertDriveLinkToEmbed(data.url) || getRandomPlaceholder();
+    
+    if(data.w && data.w.trim() !== "" && data.h && data.h.trim() !== ""){
+      const width = parseFloat(data.w);
+      const height = parseFloat(data.h);
+      
+      const ratio = getAspectRatio(width, height);
+
+      img.setAttribute('ratio', ratio.toString());
+    }
+    
+    photoHolder.appendChild(img);
+    
+    if(data.title && data.title.trim() !== ""){ 
+      img.alt = data.title;
+      const text = document.createElement("p");
+      text.className = "feature-caption";
+      text.textContent = data.title;
+    
+      photoHolder.appendChild(text);
+    };
+    
+    holder.appendChild(photoHolder);
+  });
+  
+  return holder;
+}
+
+function createFeaturedPicturesPage(photoData){
+  if (photoData.length === 0) return;
+    
+  const holder = createPicturesHolder(photoData);
+  
+  return `
+            <img class="background-image" src="./assets/img/bg.jpg">
+            <div class="program-feature-page">
+                ${holder.outerHTML}
+            </div>
+        `;
+}
+
+function AddStudentPagesFromData(pages, studentData, picturesData) {
+  if (!studentData || studentData.length === 0) {
     console.log("No data found.");
     return;
   }
@@ -1478,16 +2011,16 @@ function AddPagesFromData(pages, data) {
     });
   };
   
-  const pushPage = (programName, students) => {
+  const pushStudentPage = (programName, students) => {
     if (students.length === 0) return;
     
     //<img src="./assets/img/polaroid.png">
     const studentsHtml = students.map(student => `
       <div class="student-container">
-        <div class="image-wrapper" style="transform: rotate(${getRandomRotation()}deg);">
-          <img class="grad-pic select-none" src="${convertDriveLinkToEmbed(student["Image URL (Drive)"]) || getRandomPlaceholder()}" alt="${student.Name}">
-          <img class="select-none" src="${getRandomImageFrame()}">
-          ${student["Overlay Image URL (G Drive)"] && student["Overlay Image URL (G Drive)"].trim() !== "" ? `<img class="overlay select-none" src="${convertDriveLinkToEmbed(student["Overlay Image URL (G Drive)"])}">` : ''}
+        <div class="student-image-wrapper" style="transform: rotate(${getRandomRotation()}deg);">
+          <img draggable="false" class="grad-pic select-none" src="${convertDriveLinkToEmbed(student["Image URL (Drive)"]) || getRandomPlaceholder()}" alt="${student.Name}">
+          <img draggable="false" class="select-none" src="${getRandomImageFrame()}">
+          ${student["Overlay Image URL (G Drive)"] && student["Overlay Image URL (G Drive)"].trim() !== "" ? `<img draggable="false" class="overlay select-none" src="${convertDriveLinkToEmbed(student["Overlay Image URL (G Drive)"])}">` : ''}
           ${student["Portfolio Link"] && student["Portfolio Link"].trim() !== "" ? `<div class="student-link" onclick="openPortfolio('${student["Portfolio Link"]}')"></div>` : ''}        </div>
         <div class="student-info">
           <div class="student-name">${student["Preferred Name"] && student["Preferred Name"].trim() !== "" ? student["Preferred Name"] : student.Name}</div>
@@ -1505,60 +2038,69 @@ function AddPagesFromData(pages, data) {
         <div class="students-holder">
           ${studentsHtml}
         </div>
-        
       </div>
-      
       `
     });
     
     // <div class="foot">Class of 2026</div>
   };
-
-  // Loop through all data rows
-  data.forEach((student, index) => {
+  
+  for(const student of studentData){
     const studentProgram = student.Program;
     
     // true for the very first student too, because currentProgram starts as null
     const isNewProgram = currentProgram !== studentProgram;
-
+    
     // flush the previous program's last, partly filled page first...
     if (currentProgram !== null && isNewProgram) {
-      pushPage(currentProgram, currentBatch);
+      pushStudentPage(currentProgram, currentBatch);
       currentBatch = [];
+
+      AddProgramPicturesFromData(pages, picturesData, currentProgram);
+    }
+
+    if (isNewProgram) {
+      //pushProgramDivider(currentProgram);
+      tocPages.push({name: studentProgram, pageNumber: pages.length});
     }
     
     currentProgram = studentProgram;
     currentBatch.push(student);
-
-    if (isNewProgram) {
-      //pushProgramDivider(studentProgram);
-      tocPages.push({name: currentProgram, pageNumber: pages.length});
-    }
-
+    
     // if the batch hits studentsPerPage students, push the page and reset the batch
     if (currentBatch.length === studentsPerPage) {
-      pushPage(currentProgram, currentBatch);
+      pushStudentPage(currentProgram, currentBatch);
       currentBatch = [];
     }
-  });
+  }
   
   // push any remaining students who didn't fill a full block of studentsPerPage
   if (currentBatch.length > 0) {
-    pushPage(currentProgram, currentBatch);
+    pushStudentPage(currentProgram, currentBatch);
+    AddProgramPicturesFromData(pages, picturesData, currentProgram);
   }
 }
 
+function updateLoading(text, percent){
+  loadingText.textContent = text;
+  document.documentElement.style.setProperty('--load-progress', percent);
+}
+
 async function initialize() {
-  
-  
   if (stage == null) return;
   if (previousButton == null) return;
   if (tocButton == null) return;
   if (nextButton == null) return;
   
-  const sheetData = await loadSheetData();
+  updateLoading("Loading Database", '0.1');
 
-  console.log("Data Loaded");
+  const studentSheetData = await loadSheetDataRows();
+  
+  const picsSheetData = await loadSheetDataColumns();
+
+  await loadSheetDataColumns();
+  
+  updateLoading("Building Book", '0.3');
 
   const bookPages = [];
 
@@ -1618,7 +2160,11 @@ async function initialize() {
     html: `<img class="background-image" style="opacity: 0.2" src="./assets/img/Mural6th.png">`,
   });
   
-  AddPagesFromData(bookPages, sheetData);
+  AddStudentPagesFromData(bookPages, studentSheetData, picsSheetData);
+  
+  tocPages.push({name: "Various Pictures", pageNumber: bookPages.length});
+  
+  AddProgramPicturesFromData(bookPages, picsSheetData, "Various");
   
   bookPages.push({
     html: `
@@ -1658,8 +2204,8 @@ async function initialize() {
   }
   
   // table of contents
-
   let tocLinksHtml = "";
+
   tocPages.forEach((currentTocData) => {
     tocLinksHtml += `<div><span class="toc-button-link" onclick="goToPage(${currentTocData.pageNumber})">${currentTocData.pageNumber} - ${currentTocData.name}</span></div><br>`;
   });
@@ -1681,6 +2227,8 @@ async function initialize() {
   faces = Array.from({ length: faceCount }, (unusedItem, faceIndex) =>
     createFace(faceIndex, bookPages),
   );
+  
+  updateLoading("Registering Events...", '0.7');
 
   stage.addEventListener("contextmenu", (event) => event.preventDefault());
   addEventListener("blur", stopZoom);
@@ -1724,8 +2272,24 @@ async function initialize() {
   
   layoutBook();
   
+  updateLoading("Fitting boxes into boxes...", '0.9');
+  
+  await relayoutFeaturedPhotos(faces);
+  
+  updateLoading("Welcome", '1');
+
+  await sleep(2000);
+
+  loadingScreen.classList.add("hidden");
+
+  await sleep(1000);
+
+  loadingScreen.style.display = "none";
   //skipToPage(17, {instantAnimate: true});
-  //skipToPage(2, {instant: true});
+  //skipToPage(64, {instant: true});
 }
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 initialize();
+
