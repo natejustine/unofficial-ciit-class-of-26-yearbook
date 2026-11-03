@@ -101,6 +101,7 @@ const nextButton = byId("next-button");
 const pageLabel = byId("page-label");
 
 const studentsPerPage = 6;
+const programPicturesPerPage = 6;
 const minRotation = -3;
 const maxRotation = 3;
 
@@ -128,6 +129,8 @@ let faces = null;
 const cs = "aHR0cHM6Ly9kb2NzLmdvb2dsZS5jb20vc3ByZWFkc2hlZXRzL2QvZS8=";
 const vu = "MlBBQ1gtMXZRNjRXbldZQXgtN2N0Vzg4Q1FhWENnS3BhV1NXNTBsa1VmbS1OVFhzaHd4Sm9UelJzSmFSaUNBMU5YSmZnQnhHa2RyNWxEd2tnaGFGM08v";
 const rl = "cHViP291dHB1dD1jc3Y=";
+const gid1 = '0';
+const gid2 = '1879836969';
 
 const placeholders = [
   'placeholder.jpg'
@@ -149,9 +152,9 @@ const tocPages = [];
 
 // #region Loading CSV
 
-async function loadSheetData() {
+async function loadSheetDataRows() {
   try {
-    const response = await fetch(atob(cs) + atob(vu) + atob(rl));
+    const response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=0`);
     const csvText = await response.text();
     
     //console.log(csvToJson(csvText));
@@ -159,6 +162,66 @@ async function loadSheetData() {
   } catch (error) {
     console.error("Error loading data:", error);
   }
+}
+
+function csvToJson(csvString) {
+  const rows = csvString.trim().split(/\r?\n/);
+  if (rows.length === 0) return [];
+  
+  const headers = parseCSVLine(rows[0]);
+  
+  const jsonData = rows.slice(1).map((row) => {
+    const values = parseCSVLine(row);
+    
+    return headers.reduce((obj, header, index) => {
+      obj[header] = values[index] || "";
+      return obj;
+    }, {});
+  });
+  
+  return jsonData;
+}
+
+async function loadSheetDataColumns() {
+  try {
+    const response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=` + gid2);
+    const csvText = await response.text();
+    return csvToColumnJson(csvText);
+  } catch (error) {
+    console.error("Error loading data:", error);
+  }
+}
+
+function csvToColumnJson(csvString) {
+  const rows = csvString.trim().split(/\r\n|\n|\r/).filter(row => row.trim() !== "");
+  if (rows.length <= 1) return {};
+  
+  const headers = parseCSVLine(rows[0]);
+  const columnData = {};
+  
+  headers.forEach(header => {
+    columnData[header] = [];
+  });
+  
+  for (let i = 1; i < rows.length; i++) {
+    const values = parseCSVLine(rows[i]);
+    headers.forEach((header, index) => {
+      columnData[header].push(values[index] || "");
+    });
+  }
+  
+  headers.forEach(header => {
+    const arr = columnData[header];
+    let lastValid = arr.length - 1;
+    
+    while (lastValid >= 0 && arr[lastValid] === "") {
+      lastValid--;
+    }
+    
+    arr.length = lastValid + 1;
+  });
+  
+  return columnData;
 }
 
 function parseCSVLine(text) {
@@ -189,23 +252,6 @@ function parseCSVLine(text) {
   return result;
 }
 
-function csvToJson(csvString) {
-  const rows = csvString.trim().split(/\r?\n/);
-  if (rows.length === 0) return [];
-  
-  const headers = parseCSVLine(rows[0]);
-  
-  const jsonData = rows.slice(1).map((row) => {
-    const values = parseCSVLine(row);
-    
-    return headers.reduce((obj, header, index) => {
-      obj[header] = values[index] || "";
-      return obj;
-    }, {});
-  });
-  
-  return jsonData;
-}
 
 // #endregion
 
@@ -1463,8 +1509,65 @@ function goToPage(pageNumber){
 
 //#endregion
 
-function AddPagesFromData(pages, data) {
-  if (!data || data.length === 0) {
+function AddProgramPicturesFromData(pages, picturesData, key){
+  
+  if (!picturesData || picturesData.length === 0) return;
+  if (!picturesData.hasOwnProperty(key)) return;
+  
+  let currentBatch = [];
+  
+
+  const pushPicturesPage = (photoUrls) => {
+    if (photoUrls.length === 0) return;
+    //<img src="./assets/img/polaroid.png">
+    const photosHtml = photoUrls.map(url => `
+      <div class="student-container">
+        <div class="image-wrapper" style="transform: rotate(${getRandomRotation()}deg);">
+          <img class="grad-pic select-none" src="${convertDriveLinkToEmbed(url) || getRandomPlaceholder()}">
+          <img class="select-none" src="${getRandomImageFrame()}">
+        </div>
+      </div>
+    `).join("");
+    
+    //<div class="ref-layout"></div>
+    pages.push({
+      html: `
+      <img class="background-image" src="./assets/img/bg.jpg">
+      <div class="graduates-page">
+        <div class="students-holder">
+          ${photosHtml}
+        </div>
+      </div>
+      `
+    });
+    
+    // <div class="foot">Class of 2026</div>
+  };
+
+  
+  const urls = picturesData[key]; 
+  
+  if (urls && urls.length > 0) {
+    urls.forEach((url, index) => {
+    
+      currentBatch.push(url);
+      
+      if (currentBatch.length === programPicturesPerPage) {
+        pushPicturesPage(currentBatch);
+        currentBatch = [];
+      }
+    });
+    
+    // push any remaining students who didn't fill a full block of studentsPerPage
+    if (currentBatch.length > 0) {
+      pushPicturesPage(currentBatch);
+    }
+  }
+  
+}
+
+function AddStudentPagesFromData(pages, studentData, picturesData) {
+  if (!studentData || studentData.length === 0) {
     console.log("No data found.");
     return;
   }
@@ -1478,7 +1581,7 @@ function AddPagesFromData(pages, data) {
     });
   };
   
-  const pushPage = (programName, students) => {
+  const pushStudentPage = (programName, students) => {
     if (students.length === 0) return;
     
     //<img src="./assets/img/polaroid.png">
@@ -1505,9 +1608,7 @@ function AddPagesFromData(pages, data) {
         <div class="students-holder">
           ${studentsHtml}
         </div>
-        
       </div>
-      
       `
     });
     
@@ -1515,36 +1616,40 @@ function AddPagesFromData(pages, data) {
   };
 
   // Loop through all data rows
-  data.forEach((student, index) => {
+  studentData.forEach((student, index) => {
     const studentProgram = student.Program;
     
     // true for the very first student too, because currentProgram starts as null
     const isNewProgram = currentProgram !== studentProgram;
-
+    
     // flush the previous program's last, partly filled page first...
     if (currentProgram !== null && isNewProgram) {
-      pushPage(currentProgram, currentBatch);
+      pushStudentPage(currentProgram, currentBatch);
       currentBatch = [];
+    }
+
+    if (isNewProgram) {
+      AddProgramPicturesFromData(pages, picturesData, currentProgram);
     }
     
     currentProgram = studentProgram;
     currentBatch.push(student);
-
+    
     if (isNewProgram) {
-      //pushProgramDivider(studentProgram);
+      //pushProgramDivider(currentProgram);
       tocPages.push({name: currentProgram, pageNumber: pages.length});
     }
 
     // if the batch hits studentsPerPage students, push the page and reset the batch
     if (currentBatch.length === studentsPerPage) {
-      pushPage(currentProgram, currentBatch);
+      pushStudentPage(currentProgram, currentBatch);
       currentBatch = [];
     }
   });
   
   // push any remaining students who didn't fill a full block of studentsPerPage
   if (currentBatch.length > 0) {
-    pushPage(currentProgram, currentBatch);
+    pushStudentPage(currentProgram, currentBatch);
   }
 }
 
@@ -1556,8 +1661,12 @@ async function initialize() {
   if (tocButton == null) return;
   if (nextButton == null) return;
   
-  const sheetData = await loadSheetData();
+  const studentSheetData = await loadSheetDataRows();
+  
+  const picsSheetData = await loadSheetDataColumns();
 
+  await loadSheetDataColumns();
+  
   console.log("Data Loaded");
 
   const bookPages = [];
@@ -1618,7 +1727,11 @@ async function initialize() {
     html: `<img class="background-image" style="opacity: 0.2" src="./assets/img/Mural6th.png">`,
   });
   
-  AddPagesFromData(bookPages, sheetData);
+  AddStudentPagesFromData(bookPages, studentSheetData, picsSheetData);
+  
+  tocPages.push({name: "Various Pictures", pageNumber: bookPages.length});
+
+  AddProgramPicturesFromData(bookPages, picsSheetData, "Various");
   
   bookPages.push({
     html: `
@@ -1658,8 +1771,8 @@ async function initialize() {
   }
   
   // table of contents
-
   let tocLinksHtml = "";
+
   tocPages.forEach((currentTocData) => {
     tocLinksHtml += `<div><span class="toc-button-link" onclick="goToPage(${currentTocData.pageNumber})">${currentTocData.pageNumber} - ${currentTocData.name}</span></div><br>`;
   });
@@ -1725,7 +1838,8 @@ async function initialize() {
   layoutBook();
   
   //skipToPage(17, {instantAnimate: true});
-  //skipToPage(2, {instant: true});
+  skipToPage(68, {instant: true});
 }
 
 initialize();
+
