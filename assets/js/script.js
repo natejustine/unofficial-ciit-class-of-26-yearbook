@@ -266,12 +266,12 @@ function convertDriveLinkToEmbed(input) {
   // - /open?id=FILE_ID
   const driveRegex =
     /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=|[^\/]+\/[^\/]+\/d\/)([a-zA-Z0-9_-]{25,}))|(?:id=([a-zA-Z0-9_-]{25,}))/;
-
+  
   const match = input.trim().match(driveRegex);
-
+  
   // match[1] captures the ID from standard paths, match[2] captures from query parameters if needed
   const fileId = match ? match[1] || match[2] : null;
-
+  
   if (!fileId) {
     // fallback: If the input itself is just a bare file ID string (25+ alphanumeric/dash/underscore chars)
     const bareIdRegex = /^[a-zA-Z0-9_-]{25,}$/;
@@ -280,7 +280,7 @@ function convertDriveLinkToEmbed(input) {
     }
     return input; //fail
   }
-
+  
   return `https://lh3.googleusercontent.com/d/${fileId}`;
 }
 
@@ -560,9 +560,6 @@ function layoutBook() {
   updateControls();
 }
 
-// ============================================================
-// Starting and finishing a flip
-// ============================================================
 // direction: +1 = turn a page from right to left, -1 = turn it back. cornerY: 0 (top) or pageHeight (bottom).
 function startFlip(direction, cornerY, faceOverrides = {}) {
   if (book == null) return;
@@ -1509,61 +1506,384 @@ function goToPage(pageNumber){
 
 //#endregion
 
-function AddProgramPicturesFromData(pages, picturesData, key){
-  
-  if (!picturesData || picturesData.length === 0) return;
-  if (!picturesData.hasOwnProperty(key)) return;
-  
-  let currentBatch = [];
-  
+//#region layout featured photos
 
-  const pushPicturesPage = (photoUrls) => {
-    if (photoUrls.length === 0) return;
-    //<img src="./assets/img/polaroid.png">
-    const photosHtml = photoUrls.map(url => `
-      <div class="student-container">
-        <div class="image-wrapper" style="transform: rotate(${getRandomRotation()}deg);">
-          <img class="grad-pic select-none" src="${convertDriveLinkToEmbed(url) || getRandomPlaceholder()}">
-          <img class="select-none" src="${getRandomImageFrame()}">
-        </div>
-      </div>
-    `).join("");
+function createTable(rowCount, columnCount, fillValue) {
+  const table = [];
+  
+  for (let r = 0; r < rowCount; r++) {
+      const row = [];
+      for (let c = 0; c < columnCount; c++) {
+          row.push(fillValue);
+      }
+      table.push(row);
+  }
+  
+  return table;
+}
+
+// rowHeightTable[startIndex][endIndex] = height of a row holding photos
+// startIndex .. endIndex-1 stretched to the full width (0 = they don't fit).
+function buildRowHeightTable(aspectRatios, innerWidth, gap) {
+    const photoCount = aspectRatios.length;
+    const rowHeightTable = createTable(photoCount + 1, photoCount + 1, 0);
     
-    //<div class="ref-layout"></div>
-    pages.push({
-      html: `
-      <img class="background-image" src="./assets/img/bg.jpg">
-      <div class="graduates-page">
-        <div class="students-holder">
-          ${photosHtml}
-        </div>
-      </div>
-      `
+    for (let startIndex = 0; startIndex < photoCount; startIndex++) {
+        let aspectRatioTotal = 0;
+        
+        for (let endIndex = startIndex + 1; endIndex <= photoCount; endIndex++) {
+            const currentAspectRatio = aspectRatios[endIndex - 1];
+            aspectRatioTotal = aspectRatioTotal + currentAspectRatio;
+            
+            const numberOfGaps = endIndex - startIndex - 1;
+            const totalGapWidth = numberOfGaps * gap;
+            const widthForPhotos = innerWidth - totalGapWidth;
+            
+            if (widthForPhotos > 0) {
+                const calculatedHeight = widthForPhotos / aspectRatioTotal;
+                rowHeightTable[startIndex][endIndex] = calculatedHeight;
+            }
+        }
+    }
+    return rowHeightTable;
+}
+
+// finds the optimal split of photos into rows matching a target height
+function findBestSplit(rowCount, photoCount, targetRowHeight, rowHeightTable) {
+    // lowestCost[rows][photos] = cheapest way to put the first `photos` into `rows`
+    const lowestCost = createTable(rowCount + 1, photoCount + 1, Infinity);
+
+    // lastRowStart[rows][photos] = where the last of those rows begins
+    const lastRowStart = createTable(rowCount + 1, photoCount + 1, -1);
+
+    lowestCost[0][0] = 0;
+
+    for (let rowNumber = 1; rowNumber <= rowCount; rowNumber++) {
+        for (let endIndex = rowNumber; endIndex <= photoCount; endIndex++) {
+            for (let startIndex = rowNumber - 1; startIndex < endIndex; startIndex++) {
+                const costBeforeThisRow = lowestCost[rowNumber - 1][startIndex];
+                const rowHeight = rowHeightTable[startIndex][endIndex];
+
+                if (costBeforeThisRow === Infinity || rowHeight === 0) continue;
+                
+                const heightRatio = rowHeight / targetRowHeight;
+                const deviation = heightRatio - 1;
+                const deviationSquared = deviation * deviation;
+                const totalCost = costBeforeThisRow + deviationSquared;
+                
+                // Update if this path is cheaper than what we found previously
+                if (totalCost < lowestCost[rowNumber][endIndex]) {
+                    lowestCost[rowNumber][endIndex] = totalCost;
+                    lastRowStart[rowNumber][endIndex] = startIndex;
+                }
+            }
+        }
+    }
+
+    const finalCost = lowestCost[rowCount][photoCount];
+
+    if (finalCost === Infinity) return null;
+
+    // walk backwards from the last row to recover every row's start and end.
+    const rows = [];
+    let currentEndIndex = photoCount;
+    
+    for (let rowNumber = rowCount; rowNumber > 0; rowNumber--) {
+        const startIndex = lastRowStart[rowNumber][currentEndIndex];
+        
+        rows.unshift({ 
+            startIndex: startIndex, 
+            endIndex: currentEndIndex 
+        });
+        
+        currentEndIndex = startIndex;
+    }
+    
+    const averageCost = finalCost / rowCount;
+    const finalScore = Math.sqrt(averageCost);
+    
+    return { 
+        rows: rows, 
+        cost: finalScore 
+    };
+}
+
+// Turns rows into x / y / width / height (pixels). Photos never stretch:
+// if the block is too tall every photo shrinks evenly, if it is too short
+// the block is centered.
+function placePhotoBoxes(rows, aspectRatios, rowHeightTable, innerWidth, innerHeight, gap, padding) {
+    
+    function sum(numbers) {
+        let total = 0;
+        for (let i = 0; i < numbers.length; i++) {
+            total += numbers[i];
+        }
+        return total;
+    }
+    
+    const naturalRowHeights = [];
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const height = rowHeightTable[row.startIndex][row.endIndex];
+        naturalRowHeights.push(height);
+    }
+
+    const totalGapHeight = (rows.length - 1) * gap;
+    const totalNaturalHeight = sum(naturalRowHeights);
+    const availableHeight = innerHeight - totalGapHeight;
+    const heightRatio = availableHeight / totalNaturalHeight;
+    const photoScale = Math.min(1, heightRatio);
+    
+    const blockHeight = sum(naturalRowHeights) * photoScale + totalGapHeight;
+    let currentY = padding + (innerHeight - blockHeight) / 2;
+
+    const boxes = [];
+    
+    rows.forEach((row, rowIndex) => {
+        const rowHeight = naturalRowHeights[rowIndex] * photoScale;
+        
+        const photoWidths = [];
+        for (let i = row.startIndex; i < row.endIndex; i++) {
+            const aspectRatio = aspectRatios[i];
+            const photoWidth = aspectRatio * rowHeight;
+            photoWidths.push(photoWidth);
+        }
+        
+        const totalPhotoWidths = sum(photoWidths);
+        const gapsInRow = photoWidths.length - 1;
+        const totalRowGapWidth = gapsInRow * gap;
+        const rowWidth = totalPhotoWidths + totalRowGapWidth;
+        
+        const horizontalSpaceDifference = innerWidth - rowWidth;
+        let currentX = padding + (horizontalSpaceDifference / 2);
+        
+        for (const width of photoWidths) {
+            boxes.push({ x: currentX, y: currentY, width, height: rowHeight });
+            currentX += width + gap;
+        }
+        currentY += rowHeight + gap;
     });
     
-    // <div class="foot">Class of 2026</div>
-  };
+    return {
+        boxes,
+        rowCount: rows.length,
+        leftoverFraction: 1 - Math.min(heightRatio, 1 / heightRatio), // 0 = no empty space
+    };
+}
 
+function convertBoxesToPercent(boxes, containerWidth, containerHeight) {
+    return boxes.map((box) => ({
+        x: (box.x / containerWidth) * 100,
+        y: (box.y / containerHeight) * 100,
+        width: (box.width / containerWidth) * 100,
+        height: (box.height / containerHeight) * 100,
+    }));
+}
+
+function computeLayout(aspectRatios, containerWidth, containerHeight, gap, padding) {
+  const photoCount = aspectRatios.length;
+
+  const totalPadding = padding * 2;
+  const innerWidth = containerWidth - totalPadding;
+  const innerHeight = containerHeight - totalPadding;
+
+  if (photoCount === 0) return null;
+  if (innerWidth <= 0) return null;
+  if (innerHeight <= 0) return null;
+
+  const rowHeightTable = buildRowHeightTable(aspectRatios, innerWidth, gap);
+  let bestLayout = null;
+
+  for (let rowCount = 1; rowCount <= photoCount; rowCount++) {
+    const totalGapSpace = (rowCount - 1) * gap;
+    const availableHeight = innerHeight - totalGapSpace;
+
+    if (availableHeight <= 0) break;
+
+    const targetRowHeight = availableHeight / rowCount;
+    const split = findBestSplit(
+      rowCount,
+      photoCount,
+      targetRowHeight,
+      rowHeightTable,
+    );
+
+    if (!split) continue;
+
+    const placement = placePhotoBoxes(
+      split.rows,
+      aspectRatios,
+      rowHeightTable,
+      innerWidth,
+      innerHeight,
+      gap,
+      padding,
+    );
+
+    const score = split.cost + placement.leftoverFraction;
+
+    if (bestLayout === null) {
+        // first valid layout found, store explicitly
+        bestLayout = {
+            boxes: placement.boxes,
+            leftoverFraction: placement.leftoverFraction,
+            score: score
+        };
+    } else {
+        // check if this layout has a better (lower) score than our current best
+        if (score < bestLayout.score) {
+            bestLayout = {
+                boxes: placement.boxes,
+                leftoverFraction: placement.leftoverFraction,
+                score: score
+            };
+        }
+    }
+  }
+
+  if (!bestLayout) return null;
+
+  return convertBoxesToPercent(bestLayout.boxes,  containerWidth, containerHeight); // finalPercentLayout
+}
+
+function readCssPercentAsPixels(element, variableName, referenceLength) {
+    const percent = parseFloat(getComputedStyle(element).getPropertyValue(variableName)) || 0;
+    return (percent / 100) * referenceLength;
+}
+
+function positionHolders(wrappers, boxes) {
+    wrappers.forEach((wrapper, index) => {
+        const { x, y, width, height } = boxes[index];
+        Object.assign(wrapper.style, {
+            left: x + "%",
+            top: y + "%",
+            width: width + "%",
+            height: height + "%",
+        });
+    });
+}
+
+async function layoutCollage(holder) {
+    const wrapperNodeList = holder.querySelectorAll(".feature-image-wrapper");
+    const wrappers = [];
+    for (let i = 0; i < wrapperNodeList.length; i++) {
+        wrappers.push(wrapperNodeList[i]);
+    }
+
+    const images = [];
+    for (let i = 0; i < wrappers.length; i++) {
+        const img = wrappers[i].querySelector("img");
+        images.push(img);
+    }
+    
+    // TODO: use the google sheet script
+    for (let i = 0; i < images.length; i++) {
+        try {
+            await images[i].decode();
+        } catch (error) {
+            
+        }
+    }
+
+    const aspectRatios = [];
+    for (let i = 0; i < images.length; i++) {
+        const width = images[i].naturalWidth;
+        const height = images[i].naturalHeight;
+        
+        let ratio = 1;
+        if (height > 0) {
+            ratio = width / height;
+        }
+        aspectRatios.push(ratio);
+    }
   
+    const shorterSide = Math.min(pageWidth, pageHeight);
+
+    const gap = readCssPercentAsPixels(document.documentElement, "--featured-gap", shorterSide);
+    const padding = readCssPercentAsPixels(document.documentElement, "--page-padding", shorterSide);
+    
+    const layout = computeLayout(
+        aspectRatios,
+        pageWidth,
+        pageHeight,
+        gap,
+        padding
+    );
+
+    if (!layout) return null;
+    
+    positionHolders(wrappers, layout);
+    return layout;
+}
+
+async function relayoutFeaturedPhotos(faces){
+  for(const face of faces){
+    const holder = byClass(face, ".program-feature-holder");
+ 
+    if(!holder) continue;
+    
+    await layoutCollage(holder); 
+  }
+}
+
+//#endregion
+
+function AddProgramPicturesFromData(pages, picturesData, key) {
+  if (!picturesData || typeof picturesData !== 'object') return;
+  if (!Object.prototype.hasOwnProperty.call(picturesData, key)) return;
+  
+  let currentBatch = [];
   const urls = picturesData[key]; 
   
   if (urls && urls.length > 0) {
-    urls.forEach((url, index) => {
-    
+    for (const url of urls) {
       currentBatch.push(url);
       
       if (currentBatch.length === programPicturesPerPage) {
-        pushPicturesPage(currentBatch);
+        const pageHtml = createFeaturedPicturesPage(currentBatch);
+        pages.push({ html: pageHtml });
         currentBatch = [];
       }
-    });
+    }
     
-    // push any remaining students who didn't fill a full block of studentsPerPage
     if (currentBatch.length > 0) {
-      pushPicturesPage(currentBatch);
+      pages.push({ html: createFeaturedPicturesPage(currentBatch) });
     }
   }
+}
+
+function createPicturesHolder(photoUrls){
+  const holder = document.createElement("div");
+  holder.className = "program-feature-holder";
+  holder.id = "program-feature-holder";
   
+  photoUrls.forEach((url) => {
+    const photoHolder = document.createElement("div");
+    photoHolder.className = "feature-image-wrapper";
+    
+    const img = document.createElement("img");
+    img.className = "select-none";
+    img.src = convertDriveLinkToEmbed(url) || getRandomPlaceholder();
+    img.style = `transform: rotate(${getRandomRotation()}deg)`
+    
+    photoHolder.appendChild(img);
+    holder.appendChild(photoHolder);
+  });
+  
+  return holder;
+}
+
+function createFeaturedPicturesPage(photoUrls){
+  if (photoUrls.length === 0) return;
+    
+  const holder = createPicturesHolder(photoUrls);
+  
+  return `
+            <img class="background-image" src="./assets/img/bg.jpg">
+            <div class="program-feature-page">
+                ${holder.outerHTML}
+            </div>
+        `;
 }
 
 function AddStudentPagesFromData(pages, studentData, picturesData) {
@@ -1587,7 +1907,7 @@ function AddStudentPagesFromData(pages, studentData, picturesData) {
     //<img src="./assets/img/polaroid.png">
     const studentsHtml = students.map(student => `
       <div class="student-container">
-        <div class="image-wrapper" style="transform: rotate(${getRandomRotation()}deg);">
+        <div class="student-image-wrapper" style="transform: rotate(${getRandomRotation()}deg);">
           <img class="grad-pic select-none" src="${convertDriveLinkToEmbed(student["Image URL (Drive)"]) || getRandomPlaceholder()}" alt="${student.Name}">
           <img class="select-none" src="${getRandomImageFrame()}">
           ${student["Overlay Image URL (G Drive)"] && student["Overlay Image URL (G Drive)"].trim() !== "" ? `<img class="overlay select-none" src="${convertDriveLinkToEmbed(student["Overlay Image URL (G Drive)"])}">` : ''}
@@ -1614,9 +1934,8 @@ function AddStudentPagesFromData(pages, studentData, picturesData) {
     
     // <div class="foot">Class of 2026</div>
   };
-
-  // Loop through all data rows
-  studentData.forEach((student, index) => {
+  
+  for(const student of studentData){
     const studentProgram = student.Program;
     
     // true for the very first student too, because currentProgram starts as null
@@ -1626,30 +1945,29 @@ function AddStudentPagesFromData(pages, studentData, picturesData) {
     if (currentProgram !== null && isNewProgram) {
       pushStudentPage(currentProgram, currentBatch);
       currentBatch = [];
+
+      AddProgramPicturesFromData(pages, picturesData, currentProgram);
     }
 
     if (isNewProgram) {
-      AddProgramPicturesFromData(pages, picturesData, currentProgram);
+      //pushProgramDivider(currentProgram);
+      tocPages.push({name: studentProgram, pageNumber: pages.length});
     }
     
     currentProgram = studentProgram;
     currentBatch.push(student);
     
-    if (isNewProgram) {
-      //pushProgramDivider(currentProgram);
-      tocPages.push({name: currentProgram, pageNumber: pages.length});
-    }
-
     // if the batch hits studentsPerPage students, push the page and reset the batch
     if (currentBatch.length === studentsPerPage) {
       pushStudentPage(currentProgram, currentBatch);
       currentBatch = [];
     }
-  });
+  }
   
   // push any remaining students who didn't fill a full block of studentsPerPage
   if (currentBatch.length > 0) {
     pushStudentPage(currentProgram, currentBatch);
+    AddProgramPicturesFromData(pages, picturesData, currentProgram);
   }
 }
 
@@ -1730,7 +2048,7 @@ async function initialize() {
   AddStudentPagesFromData(bookPages, studentSheetData, picsSheetData);
   
   tocPages.push({name: "Various Pictures", pageNumber: bookPages.length});
-
+  
   AddProgramPicturesFromData(bookPages, picsSheetData, "Various");
   
   bookPages.push({
@@ -1836,9 +2154,10 @@ async function initialize() {
   addEventListener("resize", layoutBook);
   
   layoutBook();
-  
+
+  await relayoutFeaturedPhotos(faces);  
   //skipToPage(17, {instantAnimate: true});
-  skipToPage(68, {instant: true});
+  //skipToPage(68, {instant: true});
 }
 
 initialize();

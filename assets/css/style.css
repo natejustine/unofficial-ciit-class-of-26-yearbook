@@ -19,6 +19,9 @@
     --row-gap: 4%;
     --col-count: 3;
     --col-gap: 4%;
+    --page-padding: 8%;
+
+    --featured-gap: 4%;
 
     --gradpic-ratio: 4 / 5;
 
@@ -435,7 +438,7 @@ body {
 
 .graduates-page {
     font-family: "Montserrat", sans-serif;
-    padding: 8%;
+    padding: var(--page-padding);
     height: 100%;
     box-sizing: border-box;
     display: flex;
@@ -520,7 +523,7 @@ body {
     -ms-user-select: none !important;
 }
 
-.graduates-page .image-wrapper {
+.graduates-page .student-image-wrapper {
     width: 100%;
     aspect-ratio: var(--gradpic-ratio);
     /* border: 0.05em solid white; */
@@ -536,11 +539,11 @@ body {
     display: block;
 }
 
-.image-wrapper .grad-pic{
+.student-image-wrapper .grad-pic{
     transform: scale(0.95);
 }
 
-.image-wrapper .overlay{
+.student-image-wrapper .overlay{
     transform: scale(1.25);
 }
 
@@ -602,6 +605,34 @@ body {
     background-size: contain;
 
     opacity: 0.75;
-
+    
     z-index: 210;
+}
+
+.program-feature-page{
+    position: relative;
+    padding: var(--page-padding);
+    box-sizing: border-box;
+    height: 100%;
+    width: 100%;
+}
+
+.program-feature-holder{
+    height: 100%;
+    width: 100%;
+}
+
+.feature-image-wrapper {
+    position: absolute;
+}
+
+.feature-image-wrapper img {
+    outline-offset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border: 0.3em solid #ebe8e8;
+    box-sizing: border-box;
+    filter: drop-shadow(-0.1em 0.1em 0.2em #0000003b);
 }
