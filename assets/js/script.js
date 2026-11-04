@@ -130,7 +130,7 @@ let faceCount = 0;
 let faces = null;
 
 const cs = "aHR0cHM6Ly9kb2NzLmdvb2dsZS5jb20vc3ByZWFkc2hlZXRzL2QvZS8=";
-const vu = "MlBBQ1gtMXZRNjRXbldZQXgtN2N0Vzg4Q1FhWENnS3BhV1NXNTBsa1VmbS1OVFhzaHd4Sm9UelJzSmFSaUNBMU5YSmZnQnhHa2RyNWxEd2tnaGFGM08v";
+const vu = "MlBBQ1gtMXZRQ3VCbkVTQnU0dE1ZMk5IWE80bzBnX2x6TWpJYzZBbHJTTFBjSVl5bTJwUnV4eFNaS1UzUlVqTDhaNGhOX0YzSnd6ZWI2Mkpkb2ttXzcv";
 const rl = "cHViP291dHB1dD1jc3Y=";
 const gidMain = '380728666';
 const gidFeatureNews = '1185477587';
