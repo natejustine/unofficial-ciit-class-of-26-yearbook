@@ -2,12 +2,12 @@ const CONFIG = {
   aspectRatio: 4 / 5, 
   pageStiffness: 0.1, // 0 = soft, floppy, wide shadows, bouncy  ->  1 = stiff, crisp crease, snappy
   zoomLevel: 2.2, // magnification while the right mouse button is held
-  phoneMaxWidth: 756, // narrower than this (px): one page at a time, camera pans across the spread
+  phoneMaxWidth: 756, // narrower than this (px): one page at a time, drag the camera across the spread
+  phoneMaxZoom: 4, // phone: biggest pinch-zoom magnification
 };
 
 class FlipInstance {
   constructor() {
-    // Define all properties once with default values
     this.active = false;
     this.direction = 0;
     this.cornerY = 0;
@@ -66,7 +66,11 @@ const pagePickSound = new Audio('assets/audio/page-pick.mp3');
 
 
 // interaction
-const SWIPE_PAN_DISTANCE = 28; // px a phone swipe must travel to pan instead of flip
+const GESTURE_SLOP = 8; // phone: px a finger must travel before we decide whether it flips or pans
+const PAN_THROW_SECONDS = 0.12; // phone: how far ahead (in seconds of finger speed) a released pan is projected
+const PAN_RUBBER_BAND = 0.3; // phone: resistance when dragging the camera past the first/last page
+const DOUBLE_TAP_MS = 300; // phone: two taps this close together zoom back out
+const ZOOM_SNAP = 1.04; // phone: pinching back below this magnification snaps to 1x
 const TAP_MAX_MOVEMENT = 6; // px: less movement than this counts as a tap
 const TAP_MAX_DURATION = 400; // ms
 const FLICK_SPEED = 350; // px/s: a fast flick finishes (or cancels) the flip
@@ -121,7 +125,10 @@ let skipTarget = null; // set while skipToPage() is running: { sheets, view, res
 let skipTimer = 0;
 let isPhoneLayout = false;
 let phoneView = "right"; // phone only: which page of the spread the camera shows ('left' | 'right')
-let isPanLocked = false; // phone only: ignore the rest of a gesture after it triggered a pan
+const phoneTouches = new Map(); // phone: pointerId -> { x, y } for the (max 2) fingers currently down
+let phoneGesture = null; // phone: what the current finger(s) are doing (see the phone gestures region)
+let lastZoomTap = null; // phone: previous tap while zoomed, for double-tap to zoom out
+const phoneZoom = { scale: 1, x: 0, y: 0 }; // phone: pinch-zoom transform of #zoom-layer
 let isZooming = false;
 
 let sheetCount = 0;
@@ -132,8 +139,8 @@ let faces = null;
 const cs = "aHR0cHM6Ly9kb2NzLmdvb2dsZS5jb20vc3ByZWFkc2hlZXRzL2QvZS8=";
 const vu = "MlBBQ1gtMXZRQ3VCbkVTQnU0dE1ZMk5IWE80bzBnX2x6TWpJYzZBbHJTTFBjSVl5bTJwUnV4eFNaS1UzUlVqTDhaNGhOX0YzSnd6ZWI2Mkpkb2ttXzcv";
 const rl = "cHViP291dHB1dD1jc3Y=";
-const gidMain = '380728666';
-const gidFeatureNews = '1185477587';
+const gidMain = 'MzgwNzI4NjY2';
+const gidFeature = 'MTE4NTQ3NzU4Nw==';
 
 const placeholders = [
   'placeholder.jpg'
@@ -157,7 +164,7 @@ const tocPages = [];
 
 async function loadSheetDataRows() {
   try {
-    const response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=` + gidMain);
+    const response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=` + atob(gidMain));
     const csvText = await response.text();
     return csvToJson(csvText);
   } catch (error) {
@@ -182,7 +189,7 @@ function csvToJson(csvString) {
 
 async function loadSheetDataColumns() {
   try {
-    const response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=` + gidFeatureNews);
+    const response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=` + atob(gidFeature));
     const csvText = await response.text();
     //return csvToColumnJson(csvText);
     return csvToNestedColumnJson(csvText, 2)
@@ -634,6 +641,7 @@ function layoutBook() {
   if (book == null) return;
 
   if (flipInstance.active) finishFlip(false);
+  resetPhoneGestures();
 
   const stageWidth = stage.clientWidth;
   const stageHeight = stage.clientHeight;
@@ -1170,77 +1178,74 @@ function findHoverCorner(pointerX, pointerY) {
   };
 }
 
+// Starts dragging a page. grabBook = where the page was touched, pointerBook = where the pointer is now.
+function grabPage(direction, cornerY, grabBook, pointerBook, downEvent, downTime = performance.now()) {
+  if (flipInstance.active && (flipInstance.direction !== direction || flipInstance.cornerY !== cornerY)) finishFlip(false);
+
+  if (!flipInstance.active) startFlip(direction, cornerY);
+
+  flipInstance.mode = "drag";
+
+  flipInstance.grabPoint = [
+    direction > 0 ? grabBook.x : spreadWidth - grabBook.x,
+    grabBook.y,
+  ];
+
+  flipInstance.pointerDown = {
+    x: grabBook.x,
+    y: grabBook.y,
+    clientX: downEvent.clientX,
+    clientY: downEvent.clientY,
+    time: downTime,
+  };
+
+  lastPointer = { clientX: downEvent.clientX, clientY: downEvent.clientY };
+
+  flipInstance.dragDistance = 0;
+  flipInstance.isLeaving = false;
+  flipInstance.target = computeTarget(flipInstance, pointerBook.x, pointerBook.y);
+
+  captureStagePointer(downEvent.pointerId);
+
+  stage.style.cursor = "none"; // hide the cursor while holding a page
+  requestFrame();
+}
+
 function handlePointerDown(event) {
-  
+
   if (stage == null) return;
 
   mousePosToBook = pointerToBookCoords(event);
 
   if (event.button === 2) {
+    resetPhoneZoom(false);
     startZoom(event);
     return;
   }
 
   if (event.pointerType === "mouse" && event.button !== 0) return;
+
+  // phone: fingers can flip, pan the camera, or pinch-zoom. Decided in phonePointerDown/Move.
+  if (isPhoneLayout) {
+    phonePointerDown(event);
+    return;
+  }
+
   if (event.target.closest(".student-link")) return;
   if (event.target.closest(".toc-button-link")) return;
 
-  cancelSkip(false); 
-  
-  const isRightView = phoneView === "right";
-  const minX = isPhoneLayout && isRightView ? pageWidth : 0;
-  const maxX = isPhoneLayout && !isRightView ? pageWidth : spreadWidth;
+  cancelSkip(false);
 
-  if ( mousePosToBook.x < minX || mousePosToBook.x > maxX || mousePosToBook.y < 0 || mousePosToBook.y > pageHeight) return;
-  isPanLocked = false;
+  if (mousePosToBook.x < 0 || mousePosToBook.x > spreadWidth || mousePosToBook.y < 0 || mousePosToBook.y > pageHeight) return;
 
-  // phone: the right page flips forward, the left page flips backward; the other page is reached by panning
-  const direction = isPhoneLayout
-    ? isRightView
-      ? 1
-      : -1
-    : mousePosToBook.x >= pageWidth
-      ? 1
-      : -1;
+  const direction = mousePosToBook.x >= pageWidth ? 1 : -1;
 
   if (direction > 0 ? flippedSheets >= sheetCount : flippedSheets <= 0) return;
   if (flipInstance.active && flipInstance.mode === "anim") return;
 
   const cornerY = mousePosToBook.y < pageHeight / 2 ? 0 : pageHeight;
-  
-  if (flipInstance.active && (flipInstance.direction !== direction || flipInstance.cornerY !== cornerY)) finishFlip(false);
 
-  if (!flipInstance.active) startFlip(direction, cornerY);
-  
-  flipInstance.mode = "drag";
-
-  flipInstance.grabPoint = [
-    direction > 0 ? mousePosToBook.x : spreadWidth - mousePosToBook.x,
-    mousePosToBook.y,
-  ];
-
-  flipInstance.pointerDown = {
-    x: mousePosToBook.x,
-    y: mousePosToBook.y,
-    clientX: event.clientX,
-    clientY: event.clientY,
-    time: performance.now(),
-  };
-
-  lastPointer = { clientX: event.clientX, clientY: event.clientY };
-
-  flipInstance.dragDistance = 0;
-  flipInstance.isLeaving = false;
-  flipInstance.target = computeTarget(flipInstance, mousePosToBook.x, mousePosToBook.y);
-
-  try {
-    stage.setPointerCapture(event.pointerId);
-  } catch (error) {
-    
-  }
-
-  stage.style.cursor = "none"; // hide the cursor while holding a page
-  requestFrame();
+  grabPage(direction, cornerY, mousePosToBook, mousePosToBook, event);
 }
 
 function handlePointerMove(event) {
@@ -1250,25 +1255,13 @@ function handlePointerMove(event) {
     return;
   }
 
-  if (isPanLocked) return;
+  // phone: fingers are handled by the phone gesture code
+  if (isPhoneLayout && phoneTouches.size > 0) {
+    phonePointerMove(event);
+    return;
+  }
 
   mousePosToBook = pointerToBookCoords(event);
-  
-  // phone: swiping away from the flip direction pans to the other page of the spread
-  if (flipInstance.active && flipInstance.mode === "drag" && isPhoneLayout) {
-    const swipe = event.clientX - flipInstance.pointerDown.clientX;
-    const swipesBackward = flipInstance.direction > 0 && swipe > SWIPE_PAN_DISTANCE && flippedSheets > 0;
-    const swipesForward = flipInstance.direction < 0 && swipe < -SWIPE_PAN_DISTANCE && flippedSheets < sheetCount;
-
-    if (swipesBackward || swipesForward) {
-      const targetView = flipInstance.direction > 0 ? "left" : "right";
-
-      finishFlip(false);
-      isPanLocked = true;
-      setPhoneView(targetView);
-      return;
-    }
-  }
 
   if (flipInstance.active && flipInstance.mode === "drag") {
     const moved = Math.hypot(
@@ -1331,16 +1324,6 @@ function releasePointer() {
     flipInstance.dragDistance < TAP_MAX_MOVEMENT &&
     performance.now() - flipInstance.pointerDown.time < TAP_MAX_DURATION;
   const horizontalSpeed = flipInstance.velocity[0];
-  
-  // phone: tapping near the spine pans to the other page instead of flipping
-  const grabbedNearSpine = flipInstance.grabPoint[0] - pageWidth < pageWidth * 0.25;
-  const otherPageExists =
-    flipInstance.direction > 0 ? flippedSheets > 0 : flippedSheets < sheetCount;
-  if (isPhoneLayout && isTap && grabbedNearSpine && otherPageExists) {
-    finishFlip(false);
-    setPhoneView(flipInstance.direction > 0 ? "left" : "right");
-    return;
-  }
   
   flipInstance.completes =
     isTap ||
@@ -1411,6 +1394,449 @@ function stopZoom() {
 
 //#endregion
 
+//#region phone gestures
+
+function stagePoint(clientX, clientY) {
+  const bounds = stage.getBoundingClientRect();
+  return { x: clientX - bounds.left, y: clientY - bounds.top };
+}
+
+function captureStagePointer(pointerId) {
+  if (pointerId === undefined) return;
+  try {
+    stage.setPointerCapture(pointerId);
+  } catch (error) {
+
+  }
+}
+
+function applyPhoneZoom(animate) {
+  const { scale, x, y } = phoneZoom;
+  zoomLayer.style.transition = animate ? "" : "none";
+  zoomLayer.style.transformOrigin = "0 0";
+  zoomLayer.style.transform =
+    scale === 1 && x === 0 && y === 0 ? "" : `translate(${x}px,${y}px) scale(${scale})`;
+}
+
+// keeps the zoomed stage covering the screen: no empty margins when panning around
+function clampPhoneZoom() {
+  const width = stage.clientWidth;
+  const height = stage.clientHeight;
+
+  phoneZoom.scale = Math.max(1, Math.min(CONFIG.phoneMaxZoom, phoneZoom.scale));
+  phoneZoom.x = Math.max(width - width * phoneZoom.scale, Math.min(0, phoneZoom.x));
+  phoneZoom.y = Math.max(height - height * phoneZoom.scale, Math.min(0, phoneZoom.y));
+}
+
+function resetPhoneZoom(animate) {
+  lastZoomTap = null;
+  if (phoneZoom.scale === 1 && phoneZoom.x === 0 && phoneZoom.y === 0) return;
+
+  phoneZoom.scale = 1;
+  phoneZoom.x = 0;
+  phoneZoom.y = 0;
+  applyPhoneZoom(animate);
+}
+
+// drops every finger and any zoom, instantly (resize, orientation change)
+function resetPhoneGestures() {
+  phoneTouches.clear();
+  phoneGesture = null;
+  lastZoomTap = null;
+  phoneZoom.scale = 1;
+  phoneZoom.x = 0;
+  phoneZoom.y = 0;
+  zoomLayer.style.transition = "none";
+  zoomLayer.style.transform = "";
+  zoomLayer.offsetWidth; // apply instantly, then allow animations again
+  zoomLayer.style.transition = "";
+}
+
+function isOnVisiblePage(bookPoint) {
+  const isRightView = phoneView === "right";
+  const minX = isRightView ? pageWidth : 0;
+  const maxX = isRightView ? spreadWidth : pageWidth;
+  return bookPoint.x >= minX && bookPoint.x <= maxX && bookPoint.y >= 0 && bookPoint.y <= pageHeight;
+}
+
+function phonePointerDown(event) {
+  cancelSkip(false);
+
+  // a mouse released outside the window never reports pointerup: start clean instead of staying stuck
+  if (event.pointerType === "mouse") {
+    phoneTouches.clear();
+    phoneGesture = null;
+  } else {
+    phoneTouches.delete(event.pointerId);
+  }
+
+  if (phoneTouches.size >= 2) return;
+
+  phoneTouches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+  if (phoneTouches.size === 2) {
+    startPinch();
+    return;
+  }
+
+  if (phoneZoom.scale > ZOOM_SNAP) {
+    startZoomPan(event.pointerId, event.clientX, event.clientY, false);
+    return;
+  }
+
+  // not decided yet: could become a tap, a page flip or a camera pan
+  phoneGesture = {
+    type: "pending",
+    pointerId: event.pointerId,
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    startBook: { x: mousePosToBook.x, y: mousePosToBook.y },
+    time: performance.now(),
+    onPage: isOnVisiblePage(mousePosToBook),
+    onLink: Boolean(event.target.closest(".student-link, .toc-button-link")),
+  };
+}
+
+function phonePointerMove(event) {
+  const touch = phoneTouches.get(event.pointerId);
+  if (!touch || !phoneGesture) return;
+
+  touch.x = event.clientX;
+  touch.y = event.clientY;
+
+  const gesture = phoneGesture;
+
+  if (gesture.type === "pinch") {
+    updatePinch(gesture);
+    return;
+  }
+
+  if (event.pointerId !== gesture.pointerId) return;
+
+  if (gesture.type === "zoompan") {
+    phoneZoom.x = gesture.startX + (event.clientX - gesture.startClientX);
+    phoneZoom.y = gesture.startY + (event.clientY - gesture.startClientY);
+    clampPhoneZoom();
+    applyPhoneZoom(false);
+    return;
+  }
+
+  if (gesture.type === "pan") {
+    movePan(gesture, event);
+    return;
+  }
+
+  mousePosToBook = pointerToBookCoords(event);
+
+  if (gesture.type === "flip") {
+    const moved = Math.hypot(
+      event.clientX - flipInstance.pointerDown.clientX,
+      event.clientY - flipInstance.pointerDown.clientY,
+    );
+
+    flipInstance.dragDistance = Math.max(flipInstance.dragDistance, moved);
+    lastPointer = { clientX: event.clientX, clientY: event.clientY };
+    flipInstance.target = computeTarget(flipInstance, mousePosToBook.x, mousePosToBook.y);
+
+    requestFrame();
+    return;
+  }
+
+  if (gesture.type === "pending") {
+    const deltaX = event.clientX - gesture.startClientX;
+    const deltaY = event.clientY - gesture.startClientY;
+
+    if (Math.hypot(deltaX, deltaY) < GESTURE_SLOP) return;
+
+    // a mostly vertical drag is a corner curl, not a pan
+    const flipDirection = phoneView === "right" ? 1 : -1;
+    const isHorizontal = Math.abs(deltaX) >= Math.abs(deltaY) * 0.5;
+    const movesAwayFromFlip = flipDirection > 0 ? deltaX > 0 : deltaX < 0;
+
+    if (isHorizontal && movesAwayFromFlip) startPan(gesture, event);
+    else startFlipDrag(gesture, event);
+  }
+}
+
+function phonePointerUp(event, cancelled) {
+  if (!phoneTouches.delete(event.pointerId)) return;
+
+  const gesture = phoneGesture;
+  if (!gesture) return;
+
+  if (gesture.type === "pinch") {
+    endPinch();
+    return;
+  }
+
+  if (gesture.type === "ignore") {
+    if (phoneTouches.size === 0) phoneGesture = null;
+    return;
+  }
+
+  if (event.pointerId !== gesture.pointerId) return;
+  phoneGesture = null;
+
+  if (gesture.type === "pending") {
+    if (!cancelled) phoneTap(gesture, event);
+  } else if (gesture.type === "flip") {
+    releasePointer();
+  } else if (gesture.type === "pan") {
+    endPan(gesture);
+  } else if (gesture.type === "zoompan") {
+    if (!cancelled) zoomedTap(gesture, event);
+  }
+}
+
+// tap = quick, barely moved: flips the visible page (links keep their own click)
+function phoneTap(gesture, event) {
+  const moved = Math.hypot(event.clientX - gesture.startClientX, event.clientY - gesture.startClientY);
+  if (moved >= TAP_MAX_MOVEMENT || performance.now() - gesture.time >= TAP_MAX_DURATION) return;
+  if (gesture.onLink || !gesture.onPage) return;
+
+  const direction = phoneView === "right" ? 1 : -1;
+  if (direction > 0 ? flippedSheets >= sheetCount : flippedSheets <= 0) return;
+  if (flipInstance.active && flipInstance.mode === "anim") return;
+  if (flipInstance.active) finishFlip(false);
+
+  const cornerY = gesture.startBook.y < pageHeight / 2 ? 0 : pageHeight;
+
+  startFlip(direction, cornerY);
+  flipInstance.mode = "anim";
+  flipInstance.completes = true;
+  flipInstance.isLifting = true;
+  flipInstance.isLeaving = false;
+  flipInstance.target = liftedCornerTarget(flipInstance);
+
+  playDropSound();
+  requestFrame();
+}
+
+// --- flipping ---
+
+function startFlipDrag(gesture, event) {
+  const direction = phoneView === "right" ? 1 : -1;
+  const canFlip = direction > 0 ? flippedSheets < sheetCount : flippedSheets > 0;
+  const isBusy = flipInstance.active && flipInstance.mode === "anim";
+
+  if (!canFlip || isBusy || !gesture.onPage) {
+    phoneGesture = { type: "ignore" };
+    return;
+  }
+
+  const cornerY = gesture.startBook.y < pageHeight / 2 ? 0 : pageHeight;
+  const downEvent = {
+    clientX: gesture.startClientX,
+    clientY: gesture.startClientY,
+    pointerId: gesture.pointerId,
+  };
+
+  grabPage(direction, cornerY, gesture.startBook, mousePosToBook, downEvent, gesture.time);
+
+  flipInstance.dragDistance = Math.hypot(
+    event.clientX - gesture.startClientX,
+    event.clientY - gesture.startClientY,
+  );
+  lastPointer = { clientX: event.clientX, clientY: event.clientY };
+
+  phoneGesture = { type: "flip", pointerId: gesture.pointerId };
+}
+
+// lets go of a held page and sends it back to where it started
+function cancelFlipDrag() {
+  if (!flipInstance.active || flipInstance.mode !== "drag") return;
+
+  stage.style.cursor = "";
+  flipInstance.completes = false;
+  flipInstance.isLifting = false;
+  flipInstance.target = flipInstance.corner.slice();
+  flipInstance.mode = "anim";
+  requestFrame();
+}
+
+// --- dragging the camera between the two pages of a spread ---
+
+// camera offsets the drag may reach: -pageWidth/2 shows the right page, +pageWidth/2 the left page
+function panLimits() {
+  const half = pageWidth / 2;
+  const canShowLeft = flippedSheets > 0;
+  const canShowRight = flippedSheets < sheetCount;
+
+  return {
+    min: canShowRight ? -half : half,
+    max: canShowLeft ? half : -half,
+  };
+}
+
+function rubberBand(value, min, max) {
+  if (value < min) return min - (min - value) * PAN_RUBBER_BAND;
+  if (value > max) return max + (value - max) * PAN_RUBBER_BAND;
+  return value;
+}
+
+function startPan(gesture, event) {
+  if (flipInstance.active) {
+    if (flipInstance.mode === "anim") {
+      phoneGesture = { type: "ignore" };
+      return;
+    }
+    finishFlip(false); // a hovering mouse peek
+  }
+
+  // start from where the camera visibly is, in case it was still settling
+  const startOffset = new DOMMatrixReadOnly(getComputedStyle(book).transform).m41;
+
+  book.style.transition = "none"; // the book follows the finger directly
+  book.style.transform = `translateX(${startOffset}px)`;
+
+  captureStagePointer(gesture.pointerId);
+
+  phoneGesture = {
+    type: "pan",
+    pointerId: gesture.pointerId,
+    startClientX: gesture.startClientX,
+    startOffset,
+    offset: startOffset,
+    lastX: event.clientX,
+    lastTime: performance.now(),
+    velocity: 0,
+  };
+
+  movePan(phoneGesture, event);
+}
+
+function movePan(gesture, event) {
+  const { min, max } = panLimits();
+  const raw = gesture.startOffset + (event.clientX - gesture.startClientX);
+
+  gesture.offset = rubberBand(raw, min, max);
+  book.style.transform = `translateX(${gesture.offset}px)`;
+
+  const now = performance.now();
+  const elapsed = (now - gesture.lastTime) / 1000;
+
+  if (elapsed > 0) {
+    const instantSpeed = (event.clientX - gesture.lastX) / elapsed;
+    gesture.velocity = gesture.velocity * 0.7 + instantSpeed * 0.3;
+    gesture.lastX = event.clientX;
+    gesture.lastTime = now;
+  }
+}
+
+// settles on whichever page the drag (and a little of its momentum) is closest to
+function endPan(gesture) {
+  let view = gesture.offset + gesture.velocity * PAN_THROW_SECONDS > 0 ? "left" : "right";
+
+  if (view === "left" && flippedSheets <= 0) view = "right";
+  if (view === "right" && flippedSheets >= sheetCount) view = "left";
+
+  book.style.transition = ""; // the stylesheet transition animates the snap
+  phoneView = view;
+  positionCamera();
+  updateControls();
+}
+
+// --- pinch zoom ---
+
+function startPinch() {
+  if (phoneGesture) {
+    if (phoneGesture.type === "flip") cancelFlipDrag();
+    else if (phoneGesture.type === "pan") endPan(phoneGesture);
+  }
+
+  const [first, second] = [...phoneTouches.values()];
+  const middle = stagePoint((first.x + second.x) / 2, (first.y + second.y) / 2);
+
+  phoneGesture = {
+    type: "pinch",
+    startDistance: Math.max(1, Math.hypot(first.x - second.x, first.y - second.y)),
+    startMiddle: middle,
+    startScale: phoneZoom.scale,
+    startX: phoneZoom.x,
+    startY: phoneZoom.y,
+  };
+
+  for (const pointerId of phoneTouches.keys()) captureStagePointer(pointerId);
+}
+
+// the point of the page between your fingers stays between your fingers
+function updatePinch(gesture) {
+  const [first, second] = [...phoneTouches.values()];
+  const distance = Math.hypot(first.x - second.x, first.y - second.y);
+  const middle = stagePoint((first.x + second.x) / 2, (first.y + second.y) / 2);
+
+  const scale = Math.max(1, Math.min(CONFIG.phoneMaxZoom, (gesture.startScale * distance) / gesture.startDistance));
+  const anchorX = (gesture.startMiddle.x - gesture.startX) / gesture.startScale;
+  const anchorY = (gesture.startMiddle.y - gesture.startY) / gesture.startScale;
+
+  phoneZoom.scale = scale;
+  phoneZoom.x = middle.x - anchorX * scale;
+  phoneZoom.y = middle.y - anchorY * scale;
+
+  clampPhoneZoom();
+  applyPhoneZoom(false);
+}
+
+// one finger lifted: keep looking around with the other one, unless we are back at 1x
+function endPinch() {
+  if (phoneZoom.scale <= ZOOM_SNAP) {
+    resetPhoneZoom(true);
+    phoneGesture = phoneTouches.size > 0 ? { type: "ignore" } : null;
+    return;
+  }
+
+  if (phoneTouches.size === 0) {
+    phoneGesture = null;
+    return;
+  }
+
+  const [pointerId, touch] = [...phoneTouches.entries()][0];
+  startZoomPan(pointerId, touch.x, touch.y, true);
+}
+
+// --- looking around while zoomed ---
+
+function startZoomPan(pointerId, clientX, clientY, continuesPinch) {
+  phoneGesture = {
+    type: "zoompan",
+    pointerId,
+    startClientX: clientX,
+    startClientY: clientY,
+    startX: phoneZoom.x,
+    startY: phoneZoom.y,
+    time: performance.now(),
+    continuesPinch,
+  };
+
+  captureStagePointer(pointerId);
+}
+
+// double tap while zoomed = back to 1x
+function zoomedTap(gesture, event) {
+  if (gesture.continuesPinch) return;
+
+  const moved = Math.hypot(event.clientX - gesture.startClientX, event.clientY - gesture.startClientY);
+  const now = performance.now();
+
+  if (moved >= TAP_MAX_MOVEMENT || now - gesture.time >= TAP_MAX_DURATION) {
+    lastZoomTap = null;
+    return;
+  }
+
+  const isDoubleTap =
+    lastZoomTap &&
+    now - lastZoomTap.time < DOUBLE_TAP_MS &&
+    Math.hypot(event.clientX - lastZoomTap.x, event.clientY - lastZoomTap.y) < 40;
+
+  if (isDoubleTap) {
+    resetPhoneZoom(true);
+  } else {
+    lastZoomTap = { time: now, x: event.clientX, y: event.clientY };
+  }
+}
+
+//#endregion
+
 //#region controls
 function flipPage(direction, options = {}) {
   if (direction > 0 ? flippedSheets >= sheetCount : flippedSheets <= 0) return;
@@ -1434,6 +1860,7 @@ function flipPage(direction, options = {}) {
 
 // Phone: from a back side "next" pans to the next front; from a front side "previous" pans to the previous back.
 function navigate(direction) {
+  if (isPhoneLayout) resetPhoneZoom(true);
   if (isPhoneLayout && !(flipInstance.active && flipInstance.mode === "anim")) {
     if (direction > 0 && phoneView === "left") {
       if (flippedSheets < sheetCount) setPhoneView("right");
@@ -1454,6 +1881,7 @@ function navigate(direction) {
 //   skipToPage(8).then((arrived) => console.log(arrived));
 function skipToPage(pageNumber, options = {}) {
   if(flipInstance.active) return;
+  if (isPhoneLayout) resetPhoneZoom(true);
   cancelSkip(false);
 
   return new Promise((resolve) => {
@@ -2339,16 +2767,14 @@ async function initialize() {
   
   stage.addEventListener("pointerup", (event) => {
     if (event.button === 2 || isZooming) stopZoom();
-    else {
-      releasePointer();
-      isPanLocked = false;
-    }
+    else if (isPhoneLayout) phonePointerUp(event, false);
+    else releasePointer();
   });
   
-  stage.addEventListener("pointercancel", () => {
+  stage.addEventListener("pointercancel", (event) => {
     stopZoom();
-    releasePointer();
-    isPanLocked = false;
+    if (isPhoneLayout) phonePointerUp(event, true);
+    else releasePointer();
   });
 
   stage.addEventListener("pointerleave", () => {
@@ -2392,4 +2818,3 @@ async function initialize() {
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 initialize();
-
