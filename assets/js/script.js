@@ -132,9 +132,8 @@ let faces = null;
 const cs = "aHR0cHM6Ly9kb2NzLmdvb2dsZS5jb20vc3ByZWFkc2hlZXRzL2QvZS8=";
 const vu = "MlBBQ1gtMXZRNjRXbldZQXgtN2N0Vzg4Q1FhWENnS3BhV1NXNTBsa1VmbS1OVFhzaHd4Sm9UelJzSmFSaUNBMU5YSmZnQnhHa2RyNWxEd2tnaGFGM08v";
 const rl = "cHViP291dHB1dD1jc3Y=";
-const gidMain = '0';
-const gidFeature = '1879836969';
-const gidFeatureNew = '1185477587';
+const gidMain = '380728666';
+const gidFeatureNews = '1185477587';
 
 const placeholders = [
   'placeholder.jpg'
@@ -158,10 +157,8 @@ const tocPages = [];
 
 async function loadSheetDataRows() {
   try {
-    const response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=0`);
+    const response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=` + gidMain);
     const csvText = await response.text();
-    
-    //console.log(csvToJson(csvText));
     return csvToJson(csvText);
   } catch (error) {
     console.error("Error loading data:", error);
@@ -169,26 +166,23 @@ async function loadSheetDataRows() {
 }
 
 function csvToJson(csvString) {
-  const rows = csvString.trim().split(/\r?\n/);
+  const rows = parseCSV(csvString);
+  
   if (rows.length === 0) return [];
   
-  const headers = parseCSVLine(rows[0]);
+  const headers = rows[0];
   
-  const jsonData = rows.slice(1).map((row) => {
-    const values = parseCSVLine(row);
-    
-    return headers.reduce((obj, header, index) => {
+  return rows.slice(1).map((values) =>
+    headers.reduce((obj, header, index) => {
       obj[header] = values[index] || "";
       return obj;
-    }, {});
-  });
-  
-  return jsonData;
+    }, {})
+  );
 }
 
 async function loadSheetDataColumns() {
   try {
-    const response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=` + gidFeatureNew);
+    const response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=` + gidFeatureNews);
     const csvText = await response.text();
     //return csvToColumnJson(csvText);
     return csvToNestedColumnJson(csvText, 2)
@@ -198,10 +192,10 @@ async function loadSheetDataColumns() {
 }
 
 function csvToColumnJson(csvString) {
-  const rows = csvString.trim().split(/\r\n|\n|\r/).filter(row => row.trim() !== "");
+  const rows = parseCSV(csvString).filter((r) => r.some((c) => c.trim() !== ""));
   if (rows.length <= 1) return {};
   
-  const headers = parseCSVLine(rows[0]);
+  const headers = rows[0];
   const columnData = {};
   
   headers.forEach(header => {
@@ -209,9 +203,8 @@ function csvToColumnJson(csvString) {
   });
   
   for (let i = 1; i < rows.length; i++) {
-    const values = parseCSVLine(rows[i]);
     headers.forEach((header, index) => {
-      columnData[header].push(values[index] || "");
+      columnData[header].push(rows[i][index] || "");
     });
   }
   
@@ -230,13 +223,12 @@ function csvToColumnJson(csvString) {
 }
 
 function csvToNestedColumnJson(csvString, headerRowsCount = 2) {
-  const rawRows = csvString.trim().split(/\r\n|\n|\r/);
-  const rows = rawRows.map((row) => parseCSVLine(row));
+  const rows = parseCSV(csvString);
   if (rows.length <= headerRowsCount) return {};
-
+  
   const headers = rows.slice(0, headerRowsCount);
   const numCols = Math.max(...rows.map((row) => row.length));
-
+  
   for (let r = 0; r < headers.length; r++) {
     let lastValidVal = "";
     for (let c = 0; c < numCols; c++) {
@@ -296,38 +288,63 @@ function csvToNestedColumnJson(csvString, headerRowsCount = 2) {
       }
     }
   }
-
+  
   trimArrays(columnData);
   return columnData;
 }
 
-function parseCSVLine(text) {
-  const result = [];
-  let current = "";
+function parseCSV(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // strip BOM
+  
+  const rows = [];
+  let row = [];
+  let field = "";
   let inQuotes = false;
   
   for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-
-    if (char === '"') {
-      // handle escaped quotes ("") inside quotes
-      if (inQuotes && text[i + 1] === '"') {
-        current += '"';
-        i++; // Skip the next quote
+    const ch = text[i];
+    
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {   // escaped quote ""
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;          // closing quote
+        }
       } else {
-        inQuotes = !inQuotes; // Toggle quote state
+        field += ch;                 // includes \n and \r inside the cell
       }
-    } else if (char === "," && !inQuotes) {
-      // Comma outside quotes marks the end of a column value
-      result.push(current.trim());
-      current = "";
+    } else if (ch === '"' && field === "") {
+      inQuotes = true;               // opening quote (only at field start)
+    } else if (ch === ",") {
+      row.push(field);
+      field = "";
+    } else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i++; // treat \r\n as one break
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
     } else {
-      current += char;
+      field += ch;
     }
   }
-  result.push(current.trim());
-  return result;
+
+  // last field/row if the file doesn't end with a newline
+  if (field !== "" || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  
+  // drop trailing fully-empty rows
+  while (rows.length && rows[rows.length - 1].every((c) => c.trim() === "")) {
+    rows.pop();
+  }
+  
+  return rows;
 }
+
 
 
 // #endregion
@@ -1913,6 +1930,8 @@ async function relayoutFeaturedPhotos(faces){
 
 //#endregion
 
+//#region program featured photos
+
 function AddProgramPicturesFromData(pages, picturesData, key) {
   if (!picturesData || typeof picturesData !== 'object') return;
 
@@ -1996,6 +2015,116 @@ function createFeaturedPicturesPage(photoData){
         `;
 }
 
+//#endregion
+
+function createStudentPage(programName, batchOfStudents){
+  if (batchOfStudents.length === 0) return;
+  
+  const backgroundImage = document.createElement("img");
+  backgroundImage.className = "background-image";
+  backgroundImage.src = "./assets/img/bg.jpg";
+  
+  const graduatesPage = document.createElement("div"); 
+  graduatesPage.className = "graduates-page";
+  
+  const programNameHolder = document.createElement("div"); 
+  programNameHolder.className = "program";
+  programNameHolder.append(programName, document.createElement("br"), "Class of 2026");
+  
+  graduatesPage.appendChild(programNameHolder);
+  
+  const studentseHolder = document.createElement("div"); 
+  studentseHolder.className = "students-holder";
+  
+  for(const student of batchOfStudents){
+    studentseHolder.appendChild(createStudentSection(student));
+  }
+  
+  graduatesPage.appendChild(studentseHolder);
+  
+  const wrapper = document.createElement("div");
+  wrapper.append(backgroundImage, graduatesPage);
+
+  // TODO: might be better if not return string
+  return wrapper.innerHTML;
+}
+
+function createStudentSection(studentInfo){
+
+  function appendMultiline(el, str) {
+    str.split(/\r\n|\n|\r/).forEach((line, i) => {
+      if (i > 0) el.appendChild(document.createElement("br"));
+      el.append(line);
+    });
+  }
+  
+  const studentContainer = document.createElement("div"); 
+  studentContainer.className = "student-container";
+  
+  const imageWrapper = document.createElement("div"); 
+  imageWrapper.className = "student-image-wrapper";
+  imageWrapper.style.transform = `rotate(${getRandomRotation()}deg)`;
+  
+  const graduationPicture = document.createElement("img"); 
+  graduationPicture.className = "grad-pic select-none";
+  graduationPicture.draggable = false;
+  graduationPicture.src = `${convertDriveLinkToEmbed(studentInfo["Image URL (Drive)"]) || getRandomPlaceholder()}`
+  graduationPicture.alt = studentInfo.Name;
+
+  imageWrapper.appendChild(graduationPicture);
+
+  const graduationFrame = document.createElement("img"); 
+  graduationFrame.className = "select-none";
+  graduationFrame.draggable = false;
+  graduationFrame.src = getRandomImageFrame();
+
+  imageWrapper.appendChild(graduationFrame);
+  
+  const overlay = studentInfo["Overlay Image URL (G Drive)"];
+  if(overlay && overlay.trim() !== ""){
+    const graduationOverlay = document.createElement("img"); 
+    graduationOverlay.className = "overlay select-none";
+    graduationOverlay.draggable = false;
+    graduationOverlay.src = `${convertDriveLinkToEmbed(overlay)}`;
+  
+    imageWrapper.appendChild(graduationOverlay);
+  }
+  
+  const portfolioLink = studentInfo["Portfolio Link"];
+  if(portfolioLink && portfolioLink.trim() !== ""){
+    const clickableLink = document.createElement("div"); 
+    clickableLink.className = "student-link";
+    clickableLink.setAttribute("onclick", `openPortfolio(${JSON.stringify(portfolioLink)})`);
+  
+    imageWrapper.appendChild(clickableLink);
+  }
+  
+  const infoWrapper = document.createElement("div"); 
+  infoWrapper.className = "student-info";
+
+  const studentNameDiv = document.createElement("div"); 
+  studentNameDiv.className = "student-name";
+
+  const preferredName = studentInfo["Preferred Name"];
+  studentNameDiv.textContent = `${preferredName && preferredName.trim() !== "" ? preferredName : studentInfo.Name}`;
+  
+  infoWrapper.appendChild(studentNameDiv);
+  
+  if(studentInfo.Quote && studentInfo.Quote.trim() !== ""){
+    const studentQuoteDiv = document.createElement("div"); 
+    studentQuoteDiv.className = "student-quote";
+    appendMultiline(studentQuoteDiv, studentInfo.Quote);
+    
+    infoWrapper.appendChild(studentQuoteDiv);
+  }
+
+  studentContainer.appendChild(imageWrapper);
+  studentContainer.appendChild(infoWrapper);
+  
+  return studentContainer;
+}
+
+
 function AddStudentPagesFromData(pages, studentData, picturesData) {
   if (!studentData || studentData.length === 0) {
     console.log("No data found.");
@@ -2004,45 +2133,16 @@ function AddStudentPagesFromData(pages, studentData, picturesData) {
   
   let currentBatch = [];
   let currentProgram = null;
-
+  
   const pushProgramDivider = (programName) => {
     pages.push({
       html: `<div class="program-divider">${programName}</div>`,
     });
   };
-  
-  const pushStudentPage = (programName, students) => {
-    if (students.length === 0) return;
-    
-    //<img src="./assets/img/polaroid.png">
-    const studentsHtml = students.map(student => `
-      <div class="student-container">
-        <div class="student-image-wrapper" style="transform: rotate(${getRandomRotation()}deg);">
-          <img draggable="false" class="grad-pic select-none" src="${convertDriveLinkToEmbed(student["Image URL (Drive)"]) || getRandomPlaceholder()}" alt="${student.Name}">
-          <img draggable="false" class="select-none" src="${getRandomImageFrame()}">
-          ${student["Overlay Image URL (G Drive)"] && student["Overlay Image URL (G Drive)"].trim() !== "" ? `<img draggable="false" class="overlay select-none" src="${convertDriveLinkToEmbed(student["Overlay Image URL (G Drive)"])}">` : ''}
-          ${student["Portfolio Link"] && student["Portfolio Link"].trim() !== "" ? `<div class="student-link" onclick="openPortfolio('${student["Portfolio Link"]}')"></div>` : ''}        </div>
-        <div class="student-info">
-          <div class="student-name">${student["Preferred Name"] && student["Preferred Name"].trim() !== "" ? student["Preferred Name"] : student.Name}</div>
-          ${student.Quote && student.Quote.trim() !== "" ? `<div class="student-quote">"${student.Quote}"</div>` : ''}
-        </div>
-      </div>
-    `).join("");
-    
-    //<div class="ref-layout"></div>
-    pages.push({
-      html: `
-      <img class="background-image" src="./assets/img/bg.jpg">
-      <div class="graduates-page">
-        <div class="program">${programName}<br>Class of 2026</div>
-        <div class="students-holder">
-          ${studentsHtml}
-        </div>
-      </div>
-      `
-    });
-    
-    // <div class="foot">Class of 2026</div>
+
+  const pushPage = (program, batch) => {
+    const html = createStudentPage(program, batch);
+    if (html) pages.push({ html });
   };
   
   for(const student of studentData){
@@ -2053,12 +2153,12 @@ function AddStudentPagesFromData(pages, studentData, picturesData) {
     
     // flush the previous program's last, partly filled page first...
     if (currentProgram !== null && isNewProgram) {
-      pushStudentPage(currentProgram, currentBatch);
+      pushPage(currentProgram, currentBatch);
       currentBatch = [];
-
+      
       AddProgramPicturesFromData(pages, picturesData, currentProgram);
     }
-
+    
     if (isNewProgram) {
       //pushProgramDivider(currentProgram);
       tocPages.push({name: studentProgram, pageNumber: pages.length});
@@ -2069,14 +2169,14 @@ function AddStudentPagesFromData(pages, studentData, picturesData) {
     
     // if the batch hits studentsPerPage students, push the page and reset the batch
     if (currentBatch.length === studentsPerPage) {
-      pushStudentPage(currentProgram, currentBatch);
+      pushPage(currentProgram, currentBatch);
       currentBatch = [];
     }
   }
   
   // push any remaining students who didn't fill a full block of studentsPerPage
   if (currentBatch.length > 0) {
-    pushStudentPage(currentProgram, currentBatch);
+    pushPage(currentProgram, currentBatch);
     AddProgramPicturesFromData(pages, picturesData, currentProgram);
   }
 }
