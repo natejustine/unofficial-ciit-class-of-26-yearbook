@@ -2620,15 +2620,17 @@ async function initialize() {
   if (tocButton == null) return;
   if (nextButton == null) return;
   
-  updateLoading("Loading Database", '0.1');
-
+  updateLoading("Loading Student Database", '0.1');
+  
   const studentSheetData = await loadSheetDataRows();
+
+  updateLoading("Loading Photos Database", '0.4');
   
   const picsSheetData = await loadSheetDataColumns();
 
   await loadSheetDataColumns();
   
-  updateLoading("Building Book", '0.3');
+  updateLoading("Building Book", '0.6');
 
   const bookPages = [];
 
