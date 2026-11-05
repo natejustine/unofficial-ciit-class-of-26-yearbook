@@ -432,11 +432,21 @@ body {
     top: 50%; 
     transform: translateY(-50%);
     text-transform: uppercase;
+    line-height: 1em !important;
 }
 
 .toc-button-link{
     cursor: pointer;
+    background-color: transparent;
+    color: var(--text-color)
 }
+
+.toc-button-link:hover{
+    color: var(--page-color);
+    background-color: #d6f13a;
+    text-shadow: none;
+}
+
 
 .graduates-page {
     font-family: "Montserrat", sans-serif;
@@ -572,10 +582,11 @@ body {
     font-style: italic;
     font-weight: 500;
     
+    --line-clamp: 7;
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 5;
-    line-clamp: 5; 
+    -webkit-line-clamp: var(--line-clamp);
+    line-clamp: var(--line-clamp); 
     overflow: hidden;
 }
 
@@ -740,8 +751,17 @@ body {
 #db-info{
     font-size: 0.8em;
     position: absolute;
-    bottom: 0.8%;
+    top: 0.8%;
     left: 0.8%;
+    mix-blend-mode: exclusion;
+    opacity: 0.2;
+}
+
+#dev-info{
+    font-size: 0.8em;
+    position: absolute;
+    top: 0.8%;
+    right: 0.8%;
     mix-blend-mode: exclusion;
     opacity: 0.2;
 }
