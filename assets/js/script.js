@@ -2501,22 +2501,24 @@ function createStudentSection(studentInfo){
 
   imageWrapper.appendChild(graduationPicture);
 
-  const graduationFrame = document.createElement("img"); 
-  graduationFrame.className = "select-none";
-  graduationFrame.draggable = false;
-  graduationFrame.src = getRandomImageFrame();
-
-  imageWrapper.appendChild(graduationFrame);
+  // const graduationFrame = document.createElement("img"); 
+  // graduationFrame.className = "select-none";
+  // graduationFrame.draggable = false;
+  // graduationFrame.src = getRandomImageFrame();
+  
+  // imageWrapper.appendChild(graduationFrame);
   
   const overlay = studentInfo["Overlay Image URL (G Drive)"];
+  const graduationOverlay = document.createElement("img"); 
+  graduationOverlay.className = "overlay select-none";
+  graduationOverlay.draggable = false;
   if(overlay && overlay.trim() !== ""){
-    const graduationOverlay = document.createElement("img"); 
-    graduationOverlay.className = "overlay select-none";
-    graduationOverlay.draggable = false;
     graduationOverlay.src = `${convertDriveLinkToEmbed(overlay)}`;
-  
-    imageWrapper.appendChild(graduationOverlay);
+  } else{
+    graduationOverlay.src = "./assets/img/frame_default.png";
   }
+
+  imageWrapper.appendChild(graduationOverlay);
   
   const portfolioLink = studentInfo["Portfolio Link"];
   if(portfolioLink && portfolioLink.trim() !== ""){
@@ -2563,9 +2565,23 @@ function AddStudentPagesFromData(pages, studentData, picturesData) {
   let currentProgram = null;
   
   const pushProgramDivider = (programName) => {
+
+    if(pages.length % 2 !== 0){
+      pages.push({
+        html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+      });
+    }
+
+    tocPages.push({name: programName, pageNumber: pages.length});
+
     pages.push({
       html: `<div class="program-divider">${programName}</div>`,
     });
+  
+    pages.push({
+      html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+    });
+
   };
 
   const pushPage = (program, batch) => {
@@ -2587,12 +2603,13 @@ function AddStudentPagesFromData(pages, studentData, picturesData) {
       AddProgramPicturesFromData(pages, picturesData, currentProgram);
     }
     
+    currentProgram = studentProgram;
+
     if (isNewProgram) {
+      tocPages.push({name: currentProgram, pageNumber: pages.length});
       //pushProgramDivider(currentProgram);
-      tocPages.push({name: studentProgram, pageNumber: pages.length});
     }
     
-    currentProgram = studentProgram;
     currentBatch.push(student);
     
     // if the batch hits studentsPerPage students, push the page and reset the batch
@@ -2624,7 +2641,7 @@ async function initialize() {
   
   const studentSheetData = await loadSheetDataRows();
 
-  updateLoading("Loading Photos Database", '0.4');
+  updateLoading("Loading Program Database", '0.4');
   
   const picsSheetData = await loadSheetDataColumns();
 
