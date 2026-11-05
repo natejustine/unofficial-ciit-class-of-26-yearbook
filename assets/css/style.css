@@ -718,3 +718,21 @@ body {
     
     transition: width 0.4s ease-out;
 }
+
+.program-divider{
+    font-family: "Montserrat", sans-serif;
+    padding: 0% 20%;
+    letter-spacing: 0.25em;
+    font-size: 1.25em;
+    font-weight: 700;
+    position: relative;
+    text-align: center;
+    top: 50%; 
+    transform: translateY(-50%);
+    text-transform: uppercase ;
+}
+
+.decor-divider{
+    padding: 10% 0%;
+    width: 60%;
+}

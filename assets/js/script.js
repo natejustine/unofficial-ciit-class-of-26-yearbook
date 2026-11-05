@@ -136,6 +136,9 @@ let faceCount = 0;
 
 let faces = null;
 
+// 6 \__(•_•)__/ 7
+let randomSeed = 67;
+
 const cs = "aHR0cHM6Ly9kb2NzLmdvb2dsZS5jb20vc3ByZWFkc2hlZXRzL2QvZS8=";
 const vu = "MlBBQ1gtMXZRQ3VCbkVTQnU0dE1ZMk5IWE80bzBnX2x6TWpJYzZBbHJTTFBjSVl5bTJwUnV4eFNaS1UzUlVqTDhaNGhOX0YzSnd6ZWI2Mkpkb2ttXzcv";
 const rl = "cHViP291dHB1dD1jc3Y=";
@@ -156,6 +159,18 @@ const imageFrames = [
   'frame_8.png',
   'frame_9.png',
   'frame_10.png',
+];
+
+let muralCurrentIdex = 0;
+const murals = [
+  'Mural2nd.png',
+  'MuralLib.png',
+  'Mural3rd.png',
+  'Mural4th.png',
+  'Mural6th.png',
+  'MuralBleacher.png',
+  'MuralBleacherR.png',
+  'MuralBleacherRR.png'
 ];
 
 const tocPages = [];
@@ -385,22 +400,36 @@ function convertDriveLinkToEmbed(input) {
   return `https://lh3.googleusercontent.com/d/${fileId}`;
 }
 
+
+function nextRandom() {
+    randomSeed = (randomSeed * 16807) % 2147483647;
+    return randomSeed / 2147483647;
+}
+
 function getRandomPlaceholder(){
-  const randomIndex = Math.floor(Math.random() * placeholders.length);
+  const randomIndex = Math.floor(nextRandom() * placeholders.length);
   const randomItem = placeholders[randomIndex];
   
   return `./assets/img/placeholders/${randomItem}`;
 }
 
 function getRandomImageFrame(){
-  const randomIndex = Math.floor(Math.random() * imageFrames.length);
+  const randomIndex = Math.floor(nextRandom() * imageFrames.length);
   const randomItem = imageFrames[randomIndex];
   
   return `./assets/img/frames/${randomItem}`;
 }
 
+function getNextMural() {
+  const nextIndex = muralCurrentIdex;
+  muralCurrentIdex = (muralCurrentIdex + 1) % murals.length;
+  const imageName = murals[nextIndex];
+  
+  return `./assets/img/${imageName}`;
+}
+
 function getRandomRotation(){
-    return (Math.random() * (maxRotation - minRotation) + minRotation).toFixed(2);
+    return (nextRandom() * (maxRotation - minRotation) + minRotation).toFixed(2);
 };
 
 function openPortfolio(url) {
@@ -2554,6 +2583,31 @@ function createStudentSection(studentInfo){
   return studentContainer;
 }
 
+function pushProgramDivider(pages, programName){
+    if(pages.length % 2 !== 0){
+      pages.push({
+        html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+      });
+    }
+    
+    tocPages.push({name: programName, pageNumber: pages.length});
+    
+    pages.push({
+      html: `
+      <img class="background-image" style="opacity: 0.7" src="./assets/img/bg-backup.jpg">
+      <div class="program-divider">
+        <img class="decor-divider select-none" draggable="false" src="./assets/img/divider_2.png"><br>
+        ${programName.replace(/Bachelor of\s*/i, "Bachelor of<br>").replace(/\s*with\b/i, "<br>with")}
+        <br><img class="decor-divider select-none" draggable="false" src="./assets/img/divider_2.png">
+        </div>
+      `,
+    });
+  
+    pages.push({
+      html: `<img class="background-image" style="opacity: 0.3" src="${getNextMural()}">`,
+    });
+}
+
 
 function AddStudentPagesFromData(pages, studentData, picturesData) {
   if (!studentData || studentData.length === 0) {
@@ -2564,26 +2618,6 @@ function AddStudentPagesFromData(pages, studentData, picturesData) {
   let currentBatch = [];
   let currentProgram = null;
   
-  const pushProgramDivider = (programName) => {
-
-    if(pages.length % 2 !== 0){
-      pages.push({
-        html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
-      });
-    }
-
-    tocPages.push({name: programName, pageNumber: pages.length});
-
-    pages.push({
-      html: `<div class="program-divider">${programName}</div>`,
-    });
-  
-    pages.push({
-      html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
-    });
-
-  };
-
   const pushPage = (program, batch) => {
     const html = createStudentPage(program, batch);
     if (html) pages.push({ html });
@@ -2606,8 +2640,8 @@ function AddStudentPagesFromData(pages, studentData, picturesData) {
     currentProgram = studentProgram;
 
     if (isNewProgram) {
-      tocPages.push({name: currentProgram, pageNumber: pages.length});
-      //pushProgramDivider(currentProgram);
+      //tocPages.push({name: currentProgram, pageNumber: pages.length});
+      pushProgramDivider(pages, currentProgram);
     }
     
     currentBatch.push(student);
@@ -2674,6 +2708,7 @@ async function initialize() {
     <div class="graduates-page">
       <div class="message">
          <b>DISCLAIMER</b><br><br>This digital yearbook is a non-official, student-led project made as a personal gift for the Class of 2026. 
+         It is strictly a digital project and will not be printed or sold.
          It is not affiliated with, endorsed by, or connected to CIIT College of Innovation and Integrated Technology in any way. 
          All photos, text, and media were voluntarily submitted by the student community.
       </div>
@@ -2686,7 +2721,7 @@ async function initialize() {
   });
   
   tocPages.push({name: "Table of Contents", pageNumber: bookPages.length});
-
+  
   bookPages.push({
     html: `table of contents`,
   });
@@ -2694,7 +2729,7 @@ async function initialize() {
   const tocIndex = bookPages.length - 1;
 
   bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/pattern.jpg">`,
+    html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
   });
 
   bookPages.push({
@@ -2703,15 +2738,28 @@ async function initialize() {
     <img class="background-image" src="./assets/img/the-graduates.png">
     `,
   });
+  
   bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.2" src="./assets/img/Mural6th.png">`,
+    html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
   });
   
   AddStudentPagesFromData(bookPages, studentSheetData, picsSheetData);
   
-  tocPages.push({name: "Various Pictures", pageNumber: bookPages.length});
+  pushProgramDivider(bookPages, "Batch Featured Photos");
   
   AddProgramPicturesFromData(bookPages, picsSheetData, "Various");
+
+  if (bookPages.length % 2 !== 0) {
+    bookPages.splice(bookPages.length - 2, 0, { html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">` });
+  }
+
+  bookPages.push({
+    html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+  });
+
+  bookPages.push({
+    html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+  });
   
   bookPages.push({
     html: `
@@ -2735,20 +2783,44 @@ async function initialize() {
   });
 
   bookPages.push({
+    html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+  });
+
+  bookPages.push({
+    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_1.png">`,
+  });
+  
+  bookPages.push({
+    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_5.png">`,
+  });
+
+  bookPages.push({
+    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_2.png">`,
+  });
+  
+  bookPages.push({
+    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_4.png">`,
+  });
+  
+  bookPages.push({
+    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_3.png">`,
+  });
+  
+  bookPages.push({
+    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_6.png">`,
+  });
+  
+  
+  bookPages.push({
     cover: true,
-    html: `<img class="background-image" src="./assets/img/back-op.png">`,
+    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/back-op.png">`,
   });
 
   bookPages.push({
     cover: true,
-    html: `<img class="background-image" src="./assets/img/back.png">`,
+    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/back.png">`,
   });
-  
 
-  // every sheet needs two faces. If the count is odd, add a blank page before the back cover.
-  if (bookPages.length % 2 !== 0) {
-    bookPages.splice(bookPages.length - 2, 0, { html: "" });
-  }
   
   // table of contents
   let tocLinksHtml = "";
@@ -2831,7 +2903,7 @@ async function initialize() {
 
   loadingScreen.style.display = "none";
   //skipToPage(17, {instantAnimate: true});
-  //skipToPage(64, {instant: true});
+  //skipToPage(82, {instant: true});
 }
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
