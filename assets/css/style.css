@@ -755,6 +755,7 @@ body {
     left: 0.8%;
     mix-blend-mode: exclusion;
     opacity: 0.2;
+    z-index: 249;
 }
 
 #dev-info{
@@ -764,4 +765,5 @@ body {
     right: 0.8%;
     mix-blend-mode: exclusion;
     opacity: 0.2;
+    z-index: 249;
 }
