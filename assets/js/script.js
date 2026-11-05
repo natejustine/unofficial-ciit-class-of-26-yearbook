@@ -106,6 +106,7 @@ const previousButton = byId("previous-button");
 const tocButton = byId("toc-button");
 const nextButton = byId("next-button");
 const pageLabel = byId("page-label");
+const dbInfo = byId("db-info");
 
 const studentsPerPage = 6;
 const programPicturesPerPage = 6;
@@ -133,6 +134,8 @@ let isZooming = false;
 
 let sheetCount = 0;
 let faceCount = 0;
+
+let databaseLastUpdate = "";
 
 let faces = null;
 
@@ -2675,6 +2678,10 @@ async function initialize() {
   
   const studentSheetData = await loadSheetDataRows();
 
+  if(studentSheetData) databaseLastUpdate = studentSheetData[0]["LastUpdate"];
+
+  if(dbInfo) dbInfo.textContent = `DATABASE LAST UPDATED: ${databaseLastUpdate}`;
+
   updateLoading("Loading Program Database", '0.4');
   
   const picsSheetData = await loadSheetDataColumns();
@@ -2682,7 +2689,7 @@ async function initialize() {
   await loadSheetDataColumns();
   
   updateLoading("Building Book", '0.6');
-
+  
   const bookPages = [];
 
   bookPages.push({

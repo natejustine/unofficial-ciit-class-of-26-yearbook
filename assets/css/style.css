@@ -736,3 +736,12 @@ body {
     padding: 10% 0%;
     width: 60%;
 }
+
+#db-info{
+    font-size: 0.8em;
+    position: absolute;
+    bottom: 0.8%;
+    left: 0.8%;
+    mix-blend-mode: exclusion;
+    opacity: 0.2;
+}
