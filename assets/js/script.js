@@ -2699,7 +2699,7 @@ async function initialize() {
 
   bookPages.push({
     html: `
-    <img class="background-image" style="opacity: 0.2" src="./assets/img/test.jpg">
+    <img class="background-image" style="opacity: 0.5" src="./assets/img/bg.jpg">
     <img class="background-image" src="./assets/img/the-graduates.png">
     `,
   });
