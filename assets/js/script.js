@@ -1,3 +1,5 @@
+const debug = false;
+
 const CONFIG = {
   aspectRatio: 4 / 5, 
   pageStiffness: 0.1, // 0 = soft, floppy, wide shadows, bouncy  ->  1 = stiff, crisp crease, snappy
@@ -182,7 +184,14 @@ const tocPages = [];
 
 async function loadSheetDataRows() {
   try {
-    const response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=` + atob(gidMain));
+    let response;
+    
+    if (debug) {
+      response = await fetch("./assets/ignore/students.csv");
+    } else {
+      response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=` + atob(gidMain));
+    }
+
     const csvText = await response.text();
     return csvToJson(csvText);
   } catch (error) {
@@ -207,7 +216,14 @@ function csvToJson(csvString) {
 
 async function loadSheetDataColumns() {
   try {
-    const response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=` + atob(gidFeature));
+    let response;
+    
+    if (debug) {
+      response = await fetch("./assets/ignore/program.csv");
+    } else {
+      response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=` + atob(gidFeature));
+    }
+  
     const csvText = await response.text();
     //return csvToColumnJson(csvText);
     return csvToNestedColumnJson(csvText, 2)
@@ -2683,7 +2699,7 @@ async function initialize() {
 
   if(studentSheetData) databaseLastUpdate = studentSheetData[0]["LastUpdate"];
 
-  if(dbInfo) dbInfo.textContent = `DATABASE LAST UPDATED: ${databaseLastUpdate}`;
+  if(dbInfo) dbInfo.textContent = `SYNCED: ${databaseLastUpdate}`;
 
   updateLoading("Loading Program Database", '0.4');
   
@@ -2832,7 +2848,7 @@ async function initialize() {
   
   // table of contents
   let tocLinksHtml = "";
-
+  
   tocPages.forEach((currentTocData) => {
     tocLinksHtml += `<div><span class="toc-button-link" onclick="goToPage(${currentTocData.pageNumber})">${currentTocData.pageNumber} - ${currentTocData.name}</span></div><br>`;
   });
@@ -2885,7 +2901,7 @@ async function initialize() {
   });
   
   previousButton.onclick = () => navigate(-1);
-  tocButton.onclick = () => skipToPage(tocIndex, {instantAnimate: true});
+  tocButton.onclick = () => skipToPage(tocIndex, {instantAnimate: true}); //TODO: not working on phone
   nextButton.onclick = () => navigate(1);
   
   addEventListener("keydown", (event) => {
