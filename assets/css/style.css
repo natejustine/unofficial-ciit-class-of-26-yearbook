@@ -66,7 +66,7 @@ body {
     touch-action: none;
     position: relative;
     overflow: visible;
-    filter: blur(0.05em);
+    filter: blur(0.03em);
 }
 
 #zoom-layer {
