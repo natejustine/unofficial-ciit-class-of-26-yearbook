@@ -2688,8 +2688,6 @@ async function initialize() {
   updateLoading("Loading Program Database", '0.4');
   
   const picsSheetData = await loadSheetDataColumns();
-
-  await loadSheetDataColumns();
   
   updateLoading("Building Book", '0.6');
   
