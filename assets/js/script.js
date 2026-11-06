@@ -2434,6 +2434,7 @@ function createPicturesHolder(photoData){
     const img = document.createElement("img");
     img.className = "select-none";
     img.setAttribute("draggable", "false");
+    img.loading = "lazy";
     img.src = convertDriveLinkToEmbed(data.url) || getRandomPlaceholder();
     
     if(data.w && data.w.trim() !== "" && data.h && data.h.trim() !== ""){
@@ -2510,7 +2511,7 @@ function createStudentPage(programName, batchOfStudents){
 }
 
 function createStudentSection(studentInfo){
-
+  
   function appendMultiline(el, str) {
     str.split(/\r\n|\n|\r/).forEach((line, i) => {
       if (i > 0) el.appendChild(document.createElement("br"));
@@ -2528,9 +2529,10 @@ function createStudentSection(studentInfo){
   const graduationPicture = document.createElement("img"); 
   graduationPicture.className = "grad-pic select-none";
   graduationPicture.draggable = false;
+  graduationPicture.loading = "lazy";
   graduationPicture.src = `${convertDriveLinkToEmbed(studentInfo["Image URL (Drive)"]) || getRandomPlaceholder()}`
   graduationPicture.alt = studentInfo.Name;
-
+  
   imageWrapper.appendChild(graduationPicture);
 
   // const graduationFrame = document.createElement("img"); 
@@ -2544,6 +2546,7 @@ function createStudentSection(studentInfo){
   const graduationOverlay = document.createElement("img"); 
   graduationOverlay.className = "overlay select-none";
   graduationOverlay.draggable = false;
+  graduationOverlay.loading = "lazy";
   if(overlay && overlay.trim() !== ""){
     graduationOverlay.src = `${convertDriveLinkToEmbed(overlay)}`;
   } else{
@@ -2566,7 +2569,7 @@ function createStudentSection(studentInfo){
   
   const studentNameDiv = document.createElement("div"); 
   studentNameDiv.className = "student-name";
-
+  
   const preferredName = studentInfo["Preferred Name"];
   studentNameDiv.textContent = `${preferredName && preferredName.trim() !== "" ? preferredName : studentInfo.Name}`;
   
@@ -2579,7 +2582,7 @@ function createStudentSection(studentInfo){
     
     infoWrapper.appendChild(studentQuoteDiv);
   }
-
+  
   studentContainer.appendChild(imageWrapper);
   studentContainer.appendChild(infoWrapper);
   
@@ -2599,15 +2602,15 @@ function pushProgramDivider(pages, programName){
       html: `
       <img class="background-image" style="opacity: 0.7" src="./assets/img/bg-backup.jpg">
       <div class="program-divider">
-        <img class="decor-divider select-none" draggable="false" src="./assets/img/divider_2.png"><br>
+        <img class="decor-divider select-none" draggable="false" loading="lazy" src="./assets/img/divider_2.png"><br>
         ${programName.replace(/Bachelor of\s*/i, "Bachelor of<br>").replace(/\s*with\b/i, "<br>with")}
-        <br><img class="decor-divider select-none" draggable="false" src="./assets/img/divider_2.png">
+        <br><img class="decor-divider select-none" draggable="false" loading="lazy" src="./assets/img/divider_2.png">
         </div>
       `,
     });
   
     pages.push({
-      html: `<img class="background-image" style="opacity: 0.3" src="${getNextMural()}">`,
+      html: `<img class="background-image" style="opacity: 0.3" loading="lazy" src="${getNextMural()}">`,
     });
 }
 
@@ -2742,7 +2745,7 @@ async function initialize() {
   bookPages.push({
     html: `
     <img class="background-image" style="opacity: 0.5" src="./assets/img/bg.jpg">
-    <img class="background-image" src="./assets/img/the-graduates.png">
+    <img class="background-image" loading="lazy" src="./assets/img/the-graduates.png">
     `,
   });
   
@@ -2794,38 +2797,38 @@ async function initialize() {
   });
 
   bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_1.jpg">`,
+    html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/door_1.jpg">`,
   });
   
   bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_5.jpg">`,
+    html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/door_5.jpg">`,
   });
 
   bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_2.jpg">`,
+    html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/door_2.jpg">`,
   });
   
   bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_4.jpg">`,
+    html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/door_4.jpg">`,
   });
   
   bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_3.jpg">`,
+    html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/door_3.jpg">`,
   });
   
   bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_6.jpg">`,
+    html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/door_6.jpg">`,
   });
   
   
   bookPages.push({
     cover: true,
-    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/back-op.jpg">`,
+    html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/back-op.jpg">`,
   });
 
   bookPages.push({
     cover: true,
-    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/back.jpg">`,
+    html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/back.jpg">`,
   });
 
   
