@@ -1862,10 +1862,10 @@ function startZoomPan(pointerId, clientX, clientY, continuesPinch) {
 // double tap while zoomed = back to 1x
 function zoomedTap(gesture, event) {
   if (gesture.continuesPinch) return;
-
+  
   const moved = Math.hypot(event.clientX - gesture.startClientX, event.clientY - gesture.startClientY);
   const now = performance.now();
-
+  
   if (moved >= TAP_MAX_MOVEMENT || now - gesture.time >= TAP_MAX_DURATION) {
     lastZoomTap = null;
     return;
@@ -1890,7 +1890,7 @@ function flipPage(direction, options = {}) {
   if (direction > 0 ? flippedSheets >= sheetCount : flippedSheets <= 0) return;
   if (isPhoneLayout && (direction > 0 ? phoneView === "left" : phoneView === "right")) return;
   if (flipInstance.active && flipInstance.mode === "anim") return;
-
+  
   if (flipInstance.active && flipInstance.direction !== direction) finishFlip(false);
   if (!flipInstance.active) startFlip(direction, pageHeight, options.faceOverrides);
   
@@ -1904,6 +1904,7 @@ function flipPage(direction, options = {}) {
   
   playFlipSound();
   requestFrame();
+  
 }
 
 // Phone: from a back side "next" pans to the next front; from a front side "previous" pans to the previous back.
@@ -2055,6 +2056,14 @@ function instantAnimateStep(targetSheets, targetView) {
 
   const isClosedBook = (flippedSheets === 0 && direction > 0) || (flippedSheets === sheetCount && direction < 0);
   const useAdjacentPage = skipTarget && skipTarget.instantAnimate === "adjacent";
+
+  const needsPanFirst = isPhoneLayout && phoneView !== startView && !(useAdjacentPage && !isClosedBook);
+
+  if (needsPanFirst) {
+    setPhoneView(startView);
+    skipTimer = setTimeout(() => instantAnimateStep(targetSheets, targetView), 470);
+    return;
+  }
 
   if (useAdjacentPage && !isClosedBook) {
     // jump to the spread just before the target, then turn the page next to it
@@ -2901,7 +2910,7 @@ async function initialize() {
   });
   
   previousButton.onclick = () => navigate(-1);
-  tocButton.onclick = () => skipToPage(tocIndex, {instantAnimate: true}); //TODO: not working on phone
+  tocButton.onclick = () => skipToPage(tocIndex, {instantAnimate: true});
   nextButton.onclick = () => navigate(1);
   
   addEventListener("keydown", (event) => {
@@ -2919,11 +2928,11 @@ async function initialize() {
   
   updateLoading("Welcome", '1');
 
-  await sleep(2000);
+  if(!debug) await sleep(2000);
 
   loadingScreen.classList.add("hidden");
 
-  await sleep(1000);
+  if(!debug) await sleep(1000);
 
   loadingScreen.style.display = "none";
   //skipToPage(17, {instantAnimate: true});
