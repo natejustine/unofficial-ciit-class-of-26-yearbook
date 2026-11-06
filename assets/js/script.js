@@ -166,14 +166,14 @@ const imageFrames = [
 
 let muralCurrentIdex = 0;
 const murals = [
-  'Mural2nd.png',
-  'MuralLib.png',
-  'Mural3rd.png',
-  'Mural4th.png',
-  'Mural6th.png',
-  'MuralBleacher.png',
-  'MuralBleacherR.png',
-  'MuralBleacherRR.png'
+  'Mural2nd.jpg',
+  'MuralLib.jpg',
+  'Mural3rd.jpg',
+  'Mural4th.jpg',
+  'Mural6th.jpg',
+  'MuralBleacher.jpg',
+  'MuralBleacherR.jpg',
+  'MuralBleacherRR.jpg'
 ];
 
 const tocPages = [];
@@ -2563,7 +2563,7 @@ function createStudentSection(studentInfo){
   
   const infoWrapper = document.createElement("div"); 
   infoWrapper.className = "student-info";
-
+  
   const studentNameDiv = document.createElement("div"); 
   studentNameDiv.className = "student-name";
 
@@ -2695,7 +2695,7 @@ async function initialize() {
   bookPages.push({
     cover: true,
     html: `
-      <img class="background-image" src="./assets/img/front.png">
+      <img class="background-image" src="./assets/img/front.jpg">
     `,
   });
 
@@ -2703,7 +2703,7 @@ async function initialize() {
 
   bookPages.push({
     cover: true,
-    html: `<img class="background-image" src="./assets/img/front-op.png">`,
+    html: `<img class="background-image" src="./assets/img/front-op.jpg">`,
   });
   
   
@@ -2724,7 +2724,7 @@ async function initialize() {
   });
   
   bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.4" src="./assets/img/inter-left.png">`,
+    html: `<img class="background-image" style="opacity: 0.4" src="./assets/img/inter-left.jpg">`,
   });
   
   tocPages.push({name: "Table of Contents", pageNumber: bookPages.length});
@@ -2794,38 +2794,38 @@ async function initialize() {
   });
 
   bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_1.png">`,
+    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_1.jpg">`,
   });
   
   bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_5.png">`,
+    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_5.jpg">`,
   });
 
   bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_2.png">`,
+    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_2.jpg">`,
   });
   
   bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_4.png">`,
+    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_4.jpg">`,
   });
   
   bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_3.png">`,
+    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_3.jpg">`,
   });
   
   bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_6.png">`,
+    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/door_6.jpg">`,
   });
   
   
   bookPages.push({
     cover: true,
-    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/back-op.png">`,
+    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/back-op.jpg">`,
   });
 
   bookPages.push({
     cover: true,
-    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/back.png">`,
+    html: `<img class="background-image" style="opacity: 0.5" src="./assets/img/back.jpg">`,
   });
 
   
