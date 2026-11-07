@@ -1,3 +1,4 @@
+const version = `v0.0.5`
 const debug = false;
 
 const CONFIG = {
@@ -106,14 +107,21 @@ const frontShadeStrip = byClass(frontLayer, ".shade-strip");
 const underShadeStrip = byClass(underShadowBox, ".shade-strip");
 const previousButton = byId("previous-button");
 const tocButton = byId("toc-button");
+const filterButton = byId("filter-button");
 const nextButton = byId("next-button");
 const pageLabel = byId("page-label");
-const dbInfo = byId("db-info");
+const info = byId("info");
 
 const studentsPerPage = 6;
 const programPicturesPerPage = 6;
 const minRotation = -3;
 const maxRotation = 3;
+
+let studentSheetData = null;
+let picsSheetData = null;
+let tocIndex = 0;
+let isInitializing = false;
+let isBuilding = false;
 
 let mousePosToBook = {x: 0, y:0};
 let pageWidth = 0;
@@ -133,6 +141,8 @@ let phoneGesture = null; // phone: what the current finger(s) are doing (see the
 let lastZoomTap = null; // phone: previous tap while zoomed, for double-tap to zoom out
 const phoneZoom = { scale: 1, x: 0, y: 0 }; // phone: pinch-zoom transform of #zoom-layer
 let isZooming = false;
+
+let filterNotSubmitted = false;
 
 let sheetCount = 0;
 let faceCount = 0;
@@ -723,7 +733,7 @@ function startFlip(direction, cornerY, faceOverrides = {}) {
   if (flapLayer == null) return;
   if (hardCover == null) return;
   if (underShadowBox == null) return;
-
+  
   const sheetIndex = direction > 0 ? flippedSheets : flippedSheets - 1;
   const frontFace = faceOverrides.frontFace || faces[2 * sheetIndex];
   const backFace = faceOverrides.backFace || faces[2 * sheetIndex + 1];
@@ -746,7 +756,8 @@ function startFlip(direction, cornerY, faceOverrides = {}) {
   }
   
   // covers are rigid boards: they swing on the spine instead of curling
-  const isHardCover = sheetIndex === 0 || sheetIndex === sheetCount - 1;
+  const landsOnClosedBook = faceOverrides.finalSheets === 0 || faceOverrides.finalSheets === sheetCount;
+  const isHardCover = sheetIndex === 0 || sheetIndex === sheetCount - 1 || landsOnClosedBook;
 
   // backward flips reuse the forward geometry, mirrored
   flipLayer.style.transform = direction > 0 || isHardCover ? "" : `matrix(-1,0,0,1,${spreadWidth},0)`;
@@ -1281,7 +1292,7 @@ function handlePointerDown(event) {
 
   if (event.target.closest(".student-link")) return;
   if (event.target.closest(".toc-button-link")) return;
-
+  
   cancelSkip(false);
 
   if (mousePosToBook.x < 0 || mousePosToBook.x > spreadWidth || mousePosToBook.y < 0 || mousePosToBook.y > pageHeight) return;
@@ -2655,6 +2666,7 @@ function AddStudentPagesFromData(pages, studentData, picturesData) {
   };
   
   for(const student of studentData){
+    if(filterNotSubmitted && (student["Image URL (Drive)"] == null || student["Image URL (Drive)"].trim() == "")) continue;
     const studentProgram = student.Program;
     
     // true for the very first student too, because currentProgram starts as null
@@ -2696,205 +2708,225 @@ function updateLoading(text, percent){
   document.documentElement.style.setProperty('--load-progress', percent);
 }
 
+async function toggleFilter() {
+  if (filterButton == null || isBuilding || isInitializing) return;
+  
+  let isFilter = filterButton.getAttribute("isFilter") === "true";
+  
+  isFilter = !isFilter;
+  
+  filterButton.setAttribute("isFilter", isFilter.toString());
+  filterNotSubmitted = isFilter;
+  
+  filterButton.classList.toggle("filter-on", isFilter);
+  filterButton.classList.toggle("filter-off", !isFilter);
+  
+  filterButton.title = `Filter entries without values : ${isFilter ? "True" : "False"}`;
+  isBuilding = true;
+  
+  if(flippedSheets != 0){
+    skipToPage(0, {instantAnimate: true});
+    await sleep(1000);
+  }
+  await BuildBook();
+}
+
+async function BuildBook() {
+  isBuilding = true;
+
+  try {
+    cancelSkip(false);
+    if (flipInstance.active) finishFlip(false);
+
+    tocPages.length = 0;
+
+    const bookPages = [];
+
+    bookPages.push({
+      cover: true,
+      html: `<img class="background-image" src="./assets/img/front.jpg">`,
+    });
+
+    bookPages.push({
+      cover: true,
+      html: `<img class="background-image" src="./assets/img/front-op.jpg">`,
+    });
+
+    tocPages.push({ name: "Disclaimer", pageNumber: bookPages.length });
+
+    bookPages.push({
+      html: `
+      <img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">
+      <div class="graduates-page">
+        <div class="message">
+           <b>DISCLAIMER</b><br><br>This digital yearbook is a non-official, student-led project made as a personal gift for the Class of 2026. 
+           It is strictly a digital project and will not be printed or sold.
+           It is not affiliated with, endorsed by, or connected to CIIT College of Innovation and Integrated Technology in any way. 
+           All photos, text, and media were voluntarily submitted by the student community.
+        </div>
+      </div>
+      `,
+    });
+
+    bookPages.push({
+      html: `<img class="background-image" style="opacity: 0.4" src="./assets/img/inter-left.jpg">`,
+    });
+
+    tocPages.push({ name: "Table of Contents", pageNumber: bookPages.length });
+
+    bookPages.push({ html: `table of contents` });
+
+    tocIndex = bookPages.length - 1;
+
+    bookPages.push({
+      html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+    });
+
+    bookPages.push({
+      html: `
+      <img class="background-image" style="opacity: 0.5" src="./assets/img/bg.jpg">
+      <img class="background-image" loading="lazy" src="./assets/img/the-graduates.png">
+      `,
+    });
+
+    bookPages.push({
+      html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+    });
+
+    AddStudentPagesFromData(bookPages, studentSheetData, picsSheetData);
+
+    pushProgramDivider(bookPages, "Batch Featured Photos");
+
+    AddProgramPicturesFromData(bookPages, picsSheetData, "Various");
+
+    bookPages.push({
+      html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+    });
+
+    bookPages.push({
+      html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+    });
+
+    bookPages.push({
+      html: `
+      <img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">
+      <div class="graduates-page">
+        <div class="message">
+          hello class of '26,
+          <br><br>
+          we finally graduated! congrats to us fr fr
+          <br><br>
+          since we didn't get a batch yearbook (not sure),<br>
+          i built this site so we'd have a space to save our memories together. 
+          think of it as a small parting gift from me to our batch.
+          <br><br>
+          padayon.
+          <br><br>
+          - nate
+        </div>
+      </div>
+      `,
+    });
+
+    bookPages.push({
+      html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+    });
+
+    for (const door of ["door_1", "door_5", "door_2", "door_4", "door_3", "door_6"]) {
+      bookPages.push({
+        html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/${door}.jpg">`,
+      });
+    }
+
+    if ((bookPages.length + 2) % 2 !== 0) {
+      bookPages.push({
+        html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+      });
+    }
+
+    bookPages.push({
+      cover: true,
+      html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/back-op.jpg">`,
+    });
+
+    bookPages.push({
+      cover: true,
+      html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/back.jpg">`,
+    });
+
+    let tocLinksHtml = "";
+
+    tocPages.forEach((currentTocData) => {
+      tocLinksHtml += `<div><span class="toc-button-link" onclick="goToPage(${currentTocData.pageNumber})">${currentTocData.pageNumber} - ${currentTocData.name}</span></div><br>`;
+    });
+
+    bookPages[tocIndex] = {
+      html: `
+      <img class="background-image" style="opacity: 0.4" src="./assets/img/inter-right.png">
+      <div class="toc-title">CONTENTS</div>
+      <div class="table-of-content-page">
+        <div class="toc-list">${tocLinksHtml}</div>
+      </div>
+      `,
+    };
+
+    faceCount = bookPages.length;
+    sheetCount = faceCount / 2;
+
+    faces = Array.from({ length: faceCount }, (unusedItem, faceIndex) =>
+      createFace(faceIndex, bookPages),
+    );
+
+    flippedSheets = Math.min(flippedSheets, sheetCount);
+
+    layoutBook();
+    await relayoutFeaturedPhotos(faces);
+    renderStaticPages();
+  } finally {
+    isBuilding = false;
+  }
+}
+
 async function initialize() {
   if (stage == null) return;
   if (previousButton == null) return;
   if (tocButton == null) return;
   if (nextButton == null) return;
+  if (filterButton == null) return;
   
+  isInitializing = true;
+
   updateLoading("Loading Student Database", '0.1');
-  
-  const studentSheetData = await loadSheetDataRows();
 
-  if(studentSheetData) databaseLastUpdate = studentSheetData[0]["LastUpdate"];
+  studentSheetData = await loadSheetDataRows();
 
-  if(dbInfo) dbInfo.textContent = `SYNCED: ${databaseLastUpdate}`;
+  if (studentSheetData) databaseLastUpdate = studentSheetData[0]["LastUpdate"];
+
+  if (info) info.textContent = `${version} - synced: ${databaseLastUpdate}`;
 
   updateLoading("Loading Program Database", '0.4');
-  
-  const picsSheetData = await loadSheetDataColumns();
-  
+
+  picsSheetData = await loadSheetDataColumns();
+
   updateLoading("Building Book", '0.6');
-  
-  const bookPages = [];
 
-  bookPages.push({
-    cover: true,
-    html: `
-      <img class="background-image" src="./assets/img/front.jpg">
-    `,
-  });
+  await BuildBook();
 
-  //tocPages.push({name: "Cover", pageNumber: bookPages.length - 1});
-
-  bookPages.push({
-    cover: true,
-    html: `<img class="background-image" src="./assets/img/front-op.jpg">`,
-  });
-  
-  
-  tocPages.push({name: "Disclaimer", pageNumber: bookPages.length});
-    
-  bookPages.push({
-    html: `
-    <img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">
-    <div class="graduates-page">
-      <div class="message">
-         <b>DISCLAIMER</b><br><br>This digital yearbook is a non-official, student-led project made as a personal gift for the Class of 2026. 
-         It is strictly a digital project and will not be printed or sold.
-         It is not affiliated with, endorsed by, or connected to CIIT College of Innovation and Integrated Technology in any way. 
-         All photos, text, and media were voluntarily submitted by the student community.
-      </div>
-    </div>
-    `,
-  });
-  
-  bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.4" src="./assets/img/inter-left.jpg">`,
-  });
-  
-  tocPages.push({name: "Table of Contents", pageNumber: bookPages.length});
-  
-  bookPages.push({
-    html: `table of contents`,
-  });
-
-  const tocIndex = bookPages.length - 1;
-
-  bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
-  });
-
-  bookPages.push({
-    html: `
-    <img class="background-image" style="opacity: 0.5" src="./assets/img/bg.jpg">
-    <img class="background-image" loading="lazy" src="./assets/img/the-graduates.png">
-    `,
-  });
-  
-  bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
-  });
-  
-  AddStudentPagesFromData(bookPages, studentSheetData, picsSheetData);
-  
-  pushProgramDivider(bookPages, "Batch Featured Photos");
-  
-  AddProgramPicturesFromData(bookPages, picsSheetData, "Various");
-
-  if (bookPages.length % 2 !== 0) {
-    bookPages.splice(bookPages.length - 2, 0, { html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">` });
-  }
-
-  bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
-  });
-
-  bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
-  });
-  
-  bookPages.push({
-    html: `
-    <img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">
-    <div class="graduates-page">
-      <div class="message">
-        hello class of '26,
-        <br><br>
-        we finally graduated! congrats to us fr fr
-        <br><br>
-        since we didn't get a batch yearbook (not sure),<br>
-        i built this site so we'd have a space to save our memories together. 
-        think of it as a small parting gift from me to our batch.
-        <br><br>
-        padayon.
-        <br><br>
-        - nate
-      </div>
-    </div>
-    `,
-  });
-
-  bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
-  });
-
-  bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/door_1.jpg">`,
-  });
-  
-  bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/door_5.jpg">`,
-  });
-
-  bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/door_2.jpg">`,
-  });
-  
-  bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/door_4.jpg">`,
-  });
-  
-  bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/door_3.jpg">`,
-  });
-  
-  bookPages.push({
-    html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/door_6.jpg">`,
-  });
-  
-  
-  bookPages.push({
-    cover: true,
-    html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/back-op.jpg">`,
-  });
-
-  bookPages.push({
-    cover: true,
-    html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/back.jpg">`,
-  });
-
-  
-  // table of contents
-  let tocLinksHtml = "";
-  
-  tocPages.forEach((currentTocData) => {
-    tocLinksHtml += `<div><span class="toc-button-link" onclick="goToPage(${currentTocData.pageNumber})">${currentTocData.pageNumber} - ${currentTocData.name}</span></div><br>`;
-  });
-  
-  bookPages[tocIndex] = {
-    html: `
-    <img class="background-image" style="opacity: 0.4" src="./assets/img/inter-right.png">
-    <div class="toc-title">CONTENTS</div>
-    <div class="table-of-content-page">
-      <div class="toc-list">${tocLinksHtml}</div>
-      
-    </div>
-    `,
-  };
-  
-  faceCount = bookPages.length;
-  sheetCount = faceCount / 2;
-
-  faces = Array.from({ length: faceCount }, (unusedItem, faceIndex) =>
-    createFace(faceIndex, bookPages),
-  );
-  
-  updateLoading("Registering Events...", '0.7');
+  updateLoading("Registering Events...", '0.8');
 
   stage.addEventListener("contextmenu", (event) => event.preventDefault());
   addEventListener("blur", stopZoom);
-  
+
   stage.addEventListener("pointerdown", (event) => handlePointerDown(event));
-  
+
   stage.addEventListener("pointermove", (event) => handlePointerMove(event));
-  
+
   stage.addEventListener("pointerup", (event) => {
     if (event.button === 2 || isZooming) stopZoom();
     else if (isPhoneLayout) phonePointerUp(event, false);
     else releasePointer();
   });
-  
+
   stage.addEventListener("pointercancel", (event) => {
     stopZoom();
     if (isPhoneLayout) phonePointerUp(event, true);
@@ -2908,33 +2940,30 @@ async function initialize() {
       requestFrame();
     }
   });
-  
+
   previousButton.onclick = () => navigate(-1);
-  tocButton.onclick = () => skipToPage(tocIndex, {instantAnimate: true});
+  filterButton.onclick = () => toggleFilter();
+  tocButton.onclick = () => skipToPage(tocIndex, { instantAnimate: true });
   nextButton.onclick = () => navigate(1);
-  
+
   addEventListener("keydown", (event) => {
     if (event.key === "ArrowRight") navigate(1);
     else if (event.key === "ArrowLeft") navigate(-1);
   });
 
   addEventListener("resize", layoutBook);
-  
-  layoutBook();
-  
-  updateLoading("Fitting boxes into boxes...", '0.9');
-  
-  await relayoutFeaturedPhotos(faces);
-  
+
   updateLoading("Welcome", '1');
 
-  if(!debug) await sleep(2000);
+  if (!debug) await sleep(2000);
 
   loadingScreen.classList.add("hidden");
 
-  if(!debug) await sleep(1000);
-
+  if (!debug) await sleep(1000);
+  
   loadingScreen.style.display = "none";
+
+  isInitializing = false;
   //skipToPage(17, {instantAnimate: true});
   //skipToPage(82, {instant: true});
 }
