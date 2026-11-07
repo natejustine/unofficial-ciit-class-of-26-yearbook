@@ -31,6 +31,8 @@
     box-sizing: border-box;
     padding-top: env(safe-area-inset-top, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
+
+    --portfolio-link-pop-duration: 0.4s;
 }
 
 html,
@@ -619,6 +621,12 @@ body {
     opacity: 0.75;
     
     z-index: 210;
+    transform: scale(1);
+    transition: transform 0.28s ease;
+}
+
+.student-link:hover{
+    transform: scale(1.5);
 }
 
 .program-feature-page{
@@ -790,4 +798,16 @@ body {
 
 .filter-on{
     background-image: url(../img/filter-icon-on.png);
+}
+
+.pop-once {
+    animation: pop var(--portfolio-link-pop-duration) ease-out;
+}
+
+@keyframes pop {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  20% { transform: scale(1.4) rotate(-15deg); }
+  40% { transform: scale(1.8) rotate(15deg); }
+  60% { transform: scale(2) rotate(-15deg); }
+  80% { transform: scale(1.5) rotate(15deg); }
 }

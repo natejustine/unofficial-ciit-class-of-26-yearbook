@@ -1,4 +1,4 @@
-const version = `v0.0.5`
+const version = `v0.0.6`
 const debug = false;
 
 const CONFIG = {
@@ -148,6 +148,7 @@ let sheetCount = 0;
 let faceCount = 0;
 
 let databaseLastUpdate = "";
+let dataPercentComplete = "";
 
 let faces = null;
 
@@ -858,6 +859,7 @@ function finishFlip(completed) {
 
   positionCamera();
   updateControls();
+  onFinishFlip();
   if (skipTarget) requestAnimationFrame(continueSkip);
 }
 
@@ -2514,6 +2516,8 @@ function createFeaturedPicturesPage(photoData){
 
 //#endregion
 
+//#region students
+
 function createStudentPage(programName, batchOfStudents){
   if (batchOfStudents.length === 0) return;
   
@@ -2703,6 +2707,28 @@ function AddStudentPagesFromData(pages, studentData, picturesData) {
   }
 }
 
+//#endregion
+
+function onFinishFlip(){
+  
+  //TODO Phone layout
+
+  const allLinkButtons = [
+    ...(leftSlot?.querySelectorAll('.student-link') ?? []),
+    ...(rightSlot?.querySelectorAll('.student-link') ?? [])
+  ];
+    
+  if(allLinkButtons != null && allLinkButtons.length != 0){
+    allLinkButtons.forEach((linkButton, index) => {
+      // Set a custom property for the delay calculation
+      linkButton.style.animationDelay = `${index * 0.2}s`; 
+      linkButton.classList.add("pop-once");
+    });
+  }
+}
+
+//#region initialization
+
 function updateLoading(text, percent){
   loadingText.textContent = text;
   document.documentElement.style.setProperty('--load-progress', percent);
@@ -2807,6 +2833,8 @@ async function BuildBook() {
       html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
     });
 
+    tocPages.push({ name: "Message", pageNumber: bookPages.length });
+
     bookPages.push({
       html: `
       <img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">
@@ -2823,6 +2851,8 @@ async function BuildBook() {
           padayon.
           <br><br>
           - nate
+          <br><br>
+          ps. if you haven't yet, please answer the form i emailed out. we're only at like ${dataPercentComplete} completeness right now. and if you already did, feel free to gently remind others to fill it out too! cute pa naman pag kumpleto hehe
         </div>
       </div>
       `,
@@ -2846,12 +2876,12 @@ async function BuildBook() {
 
     bookPages.push({
       cover: true,
-      html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/back-op.jpg">`,
+      html: `<img class="background-image" loading="lazy" src="./assets/img/back-op.jpg">`,
     });
 
     bookPages.push({
       cover: true,
-      html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/back.jpg">`,
+      html: `<img class="background-image" loading="lazy" src="./assets/img/back.jpg">`,
     });
 
     let tocLinksHtml = "";
@@ -2869,7 +2899,7 @@ async function BuildBook() {
       </div>
       `,
     };
-
+    
     faceCount = bookPages.length;
     sheetCount = faceCount / 2;
 
@@ -2901,6 +2931,7 @@ async function initialize() {
   studentSheetData = await loadSheetDataRows();
 
   if (studentSheetData) databaseLastUpdate = studentSheetData[0]["LastUpdate"];
+  if (studentSheetData) dataPercentComplete = studentSheetData[1]["LastUpdate"];
 
   if (info) info.textContent = `${version} - synced: ${databaseLastUpdate}`;
 
@@ -2916,7 +2947,7 @@ async function initialize() {
 
   stage.addEventListener("contextmenu", (event) => event.preventDefault());
   addEventListener("blur", stopZoom);
-
+  
   stage.addEventListener("pointerdown", (event) => handlePointerDown(event));
 
   stage.addEventListener("pointermove", (event) => handlePointerMove(event));
@@ -2969,5 +3000,7 @@ async function initialize() {
 }
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+//#endregion
 
 initialize();
