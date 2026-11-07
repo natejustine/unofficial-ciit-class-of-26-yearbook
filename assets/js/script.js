@@ -1,4 +1,4 @@
-const version = `v0.0.6`
+const version = `v0.0.7`
 const debug = false;
 
 const CONFIG = {
@@ -117,6 +117,7 @@ const programPicturesPerPage = 6;
 const minRotation = -3;
 const maxRotation = 3;
 
+const featuredPhotosHtml = [];
 let studentSheetData = null;
 let picsSheetData = null;
 let tocIndex = 0;
@@ -2430,12 +2431,21 @@ async function relayoutFeaturedPhotos(faces){
 
 //#region program featured photos
 
-function AddProgramPicturesFromData(pages, picturesData, key) {
+function AddProgramPicturesFromData(pages, picturesData, programName) {
   if (!picturesData || typeof picturesData !== 'object') return;
-
-  const programData = picturesData[key]; 
-
+  
+  const programData = picturesData[programName]; 
+  
   if(programData == null) return;
+
+  if (featuredPhotosHtml[programName]) {
+    for(const batch of featuredPhotosHtml[programName]){
+      pages.push({ html: batch });
+    }
+    return;
+  } else{
+    featuredPhotosHtml[programName] = [];
+  }
   
   let currentBatch = [];
   
@@ -2448,13 +2458,16 @@ function AddProgramPicturesFromData(pages, picturesData, key) {
       
       if (currentBatch.length === programPicturesPerPage) {
         var pageHtml = createFeaturedPicturesPage(currentBatch);
+        featuredPhotosHtml[programName].push(pageHtml)
         pages.push({ html: pageHtml });
         currentBatch = [];
       }
     }
     
     if (currentBatch.length > 0) {
-      pages.push({ html: createFeaturedPicturesPage(currentBatch) });
+      var pageHtml = createFeaturedPicturesPage(currentBatch);
+      featuredPhotosHtml[programName].push(pageHtml)
+      pages.push({ html: pageHtml });
     }
   }
 }
