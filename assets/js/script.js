@@ -1,4 +1,4 @@
-const version = `v0.0.7`
+const version = `v0.1.0`
 const debug = false;
 
 const CONFIG = {
@@ -150,6 +150,8 @@ let faceCount = 0;
 
 let databaseLastUpdate = "";
 let dataPercentComplete = "";
+
+let isDownloading = false;
 
 let faces = null;
 
@@ -510,13 +512,85 @@ function getAspectRatio(width, height) {
 
 // #endregion
 
+function handleDownloadPageAsImage(side, triggerButton) {
+  if (isDownloading) {
+    alert("A download is already in progress. Please wait a moment.");
+    return;
+  }
+  
+  const targetPage = byId(side);
+  
+  if (targetPage) {
+    isDownloading = true;
+    
+    if (triggerButton) triggerButton.classList.add('waiting');
+    
+    const targetWidth = 1024;
+    const targetHeight = Math.round(targetWidth / CONFIG.aspectRatio);
+    
+    
+    document.fonts.ready.then(() => {
+      setTimeout(() => {
+        const options = {
+          cacheBust: true,
+          pixelRatio: 1, 
+          canvasWidth: targetWidth,
+          canvasHeight: targetHeight,
+      
+          imagePlaceholder: '',
+          
+          filter: function (domNode) {
+            if (domNode.classList && (domNode.classList.contains('download-page-button') || domNode.classList.contains('student-link'))) {
+              return false; 
+            }
+            return true;
+          }
+        };
+        
+        htmlToImage.toJpeg(targetPage, options)
+          .then(function (dataUrl) {
+            const link = document.createElement('a');
+            link.download = `book-page-${side}-${targetWidth}x${targetHeight}.jpeg`;
+            link.href = dataUrl;
+            link.click();
+          })
+          .catch(function (error) {
+            console.error('Failed to download page:', error);
+            alert("Failed to capture image. Check console for details.");
+          })
+          .finally(function () {
+            if (triggerButton) triggerButton.classList.remove('waiting');
+
+            setTimeout(function () {
+              isDownloading = false;
+            }, 2000); // 2-sec cd
+          });
+      }, 500); 
+    });
+  }
+}
+
 function createFace(faceIndex, bookPages) {
   const pageData = bookPages[faceIndex];
   const face = document.createElement("div");
-  face.className = "page " + (faceIndex % 2 ? "page-left" : "page-right");
+  const isLeft = faceIndex % 2;
+  face.className = "page " + (isLeft ? "page-left" : "page-right");
+  face.id = isLeft ? "page-left" : "page-right";
   if (pageData.cover) face.classList.add("hard-cover-page");
   if (pageData.className) face.classList.add(...pageData.className.split(" "));
   face.innerHTML = pageData.html;
+
+if (!pageData.cover) {
+    const downloadButton = document.createElement('div');
+    downloadButton.title = "Download this page as an image."
+    downloadButton.classList.add(`download-page-button`);
+    downloadButton.classList.add(`${isLeft ? "dl-left" : "dl-right"}`);
+    
+    downloadButton.setAttribute("onclick", `${handleDownloadPageAsImage.name}("${isLeft ? "page-left" : "page-right"}", this)`);
+    
+    face.appendChild(downloadButton);
+  }
+
   return face;
 }
 
@@ -711,7 +785,7 @@ function layoutBook() {
   pageWidth = isPhoneLayout
     ? Math.min(stageWidth * 0.9, stageHeight * 0.9 * aspect)
     : Math.min((stageWidth * 0.94) / 2.5, stageHeight * 0.9 * aspect);
-  pageHeight = pageWidth / aspect;
+  pageHeight = Math.round(pageWidth / aspect);
   spreadWidth = pageWidth * 2;
   stripLength = 3 * Math.hypot(spreadWidth, pageHeight);
   
@@ -1295,6 +1369,7 @@ function handlePointerDown(event) {
 
   if (event.target.closest(".student-link")) return;
   if (event.target.closest(".toc-button-link")) return;
+  if (event.target.closest(".download-page-button")) return;
   
   cancelSkip(false);
 
@@ -2841,7 +2916,7 @@ async function BuildBook() {
     bookPages.push({
       html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
     });
-
+    
     bookPages.push({
       html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
     });
@@ -3002,7 +3077,7 @@ async function initialize() {
   if (!debug) await sleep(2000);
 
   loadingScreen.classList.add("hidden");
-
+  
   if (!debug) await sleep(1000);
   
   loadingScreen.style.display = "none";
