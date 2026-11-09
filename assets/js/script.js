@@ -1,4 +1,4 @@
-const version = `v0.1.0`
+const version = `v0.1.1`
 const debug = false;
 
 const CONFIG = {
@@ -2699,7 +2699,14 @@ function createStudentSection(studentInfo){
   studentNameDiv.className = "student-name";
   
   const preferredName = studentInfo["Preferred Name"];
-  studentNameDiv.textContent = `${preferredName && preferredName.trim() !== "" ? preferredName : studentInfo.Name}`;
+
+  if(preferredName && preferredName.trim() !== ""){
+    studentNameDiv.textContent = preferredName;
+    // text-transform: uppercase;
+  } else{
+    studentNameDiv.textContent = studentInfo.Name;
+    studentNameDiv.style.textTransform = "uppercase";
+  }
   
   infoWrapper.appendChild(studentNameDiv);
   

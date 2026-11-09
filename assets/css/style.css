@@ -568,7 +568,6 @@ body {
 .graduates-page .student-name {
     font-size: 0.6em;
     font-weight: 700;
-    text-transform: uppercase;
     letter-spacing: 0.05em;
     line-height: 1.2;
 }
