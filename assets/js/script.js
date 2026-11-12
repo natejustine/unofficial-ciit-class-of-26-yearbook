@@ -1,4 +1,4 @@
-const version = `v0.1.1`
+const version = `v0.1.2`
 const debug = false;
 
 const CONFIG = {
@@ -507,7 +507,8 @@ function playPickSound(){
 }
 
 function getAspectRatio(width, height) {
-    return width / height || 1;
+    if (width > 0 && height > 0) return width / height;
+    return null; 
 }
 
 // #endregion
@@ -2454,23 +2455,28 @@ async function layoutCollage(holder) {
         const image = images[i];
 
         if (image.hasAttribute("ratio")) {
-          const ratio = parseFloat(image.getAttribute("ratio"));
-          aspectRatios.push(ratio);
+          aspectRatios.push(parseFloat(image.getAttribute("ratio")));
           continue;
         }
         
-        try {
-            await image.decode();
-        } catch (error) {
-            
+        if (!image.complete || image.naturalWidth === 0) {
+            image.loading = "eager";
+            try {
+                await image.decode();
+            } catch (error) {
+                console.warn("Image failed to decode:", image.currentSrc || image.src, error);
+            }
         }
-
-        const width = image.naturalWidth;
-        const height = image.naturalHeight;
-
-        const ratio = getAspectRatio(width, height);
         
-        aspectRatios.push(ratio);
+        const ratio = getAspectRatio(image.naturalWidth, image.naturalHeight);
+
+        if (ratio === null) {
+            console.warn("No dimensions for image:", image.currentSrc || image.src);
+            aspectRatios.push(1);
+        } else{
+          aspectRatios.push(ratio);
+        }
+        
     }
   
     const shorterSide = Math.min(pageWidth, pageHeight);
