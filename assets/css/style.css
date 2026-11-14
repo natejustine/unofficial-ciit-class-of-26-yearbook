@@ -102,7 +102,7 @@ body {
     pointer-events: none;
     background-size: 100px;
     opacity: 0.2; 
-    background-image: url('/assets/img/noise.png');
+    background-image: url('/assets/img/noise.webp');
     
     animation: grain 1s steps(10, jump-none) infinite;
 }
@@ -473,7 +473,7 @@ body {
     width: 100%;
     position: absolute;
     opacity: 0.5;
-    background-image: url(../img/ref_layout.jpg);
+    background-image: url(../img/ref_layout.webp);
     background-repeat: no-repeat;
     background-size: cover;
     z-index: 9999;
@@ -611,7 +611,7 @@ body {
     
     cursor: pointer;
     
-    background-image: url(../img/potfolio-icon.png);
+    background-image: url(../img/potfolio-icon.webp);
     background-repeat: no-repeat;
     background-size: contain;
 
@@ -790,11 +790,11 @@ body {
 
 
 .filter-off{
-    background-image: url(../img/filter-icon-off.png);
+    background-image: url(../img/filter-icon-off.webp);
 }
 
 .filter-on{
-    background-image: url(../img/filter-icon-on.png);
+    background-image: url(../img/filter-icon-on.webp);
 }
 
 .pop-once {
@@ -810,7 +810,7 @@ body {
 }
 
 .download-page-button{
-    background-image: url(../img/download-image.png);
+    background-image: url(../img/download-image.webp);
     width: 3%;
     aspect-ratio: 1;
     cursor: pointer;
@@ -828,7 +828,7 @@ body {
 }
 
 .download-page-button.waiting {
-  background-image: url(../img/waiting.png) !important;
+  background-image: url(../img/waiting.webp) !important;
   animation: spin 1s linear infinite;
 }
 

@@ -1,4 +1,4 @@
-const version = `v0.1.3`
+const version = `v0.1.4`
 const debug = false;
 
 const CONFIG = {
@@ -165,31 +165,19 @@ const gidMain = 'MzgwNzI4NjY2';
 const gidFeature = 'MTE4NTQ3NzU4Nw==';
 
 const placeholders = [
-  'placeholder.jpg'
-];
-const imageFrames = [
-  'frame_1.png',
-  'frame_2.png',
-  'frame_3.png',
-  'frame_4.png',
-  'frame_5.png',
-  'frame_6.png',
-  'frame_7.png',
-  'frame_8.png',
-  'frame_9.png',
-  'frame_10.png',
+  'placeholder.webp'
 ];
 
 let muralCurrentIdex = 0;
 const murals = [
-  'Mural2nd.jpg',
-  'MuralLib.jpg',
-  'Mural3rd.jpg',
-  'Mural4th.jpg',
-  'Mural6th.jpg',
-  'MuralBleacher.jpg',
-  'MuralBleacherR.jpg',
-  'MuralBleacherRR.jpg'
+  'Mural2nd.webp',
+  'MuralLib.webp',
+  'Mural3rd.webp',
+  'Mural4th.webp',
+  'Mural6th.webp',
+  'MuralBleacher.webp',
+  'MuralBleacherR.webp',
+  'MuralBleacherRR.webp'
 ];
 
 const tocPages = [];
@@ -444,13 +432,6 @@ function getRandomPlaceholder(){
   const randomItem = placeholders[randomIndex];
   
   return `./assets/img/placeholders/${randomItem}`;
-}
-
-function getRandomImageFrame(){
-  const randomIndex = Math.floor(nextRandom() * imageFrames.length);
-  const randomItem = imageFrames[randomIndex];
-  
-  return `./assets/img/frames/${randomItem}`;
 }
 
 function getNextMural() {
@@ -2601,7 +2582,7 @@ function createFeaturedPicturesPage(photoData){
   const holder = createPicturesHolder(photoData);
   
   return `
-            <img class="background-image" src="./assets/img/bg.jpg">
+            <img class="background-image" src="./assets/img/bg.webp">
             <div class="program-feature-page">
                 ${holder.outerHTML}
             </div>
@@ -2617,7 +2598,7 @@ function createStudentPage(programName, batchOfStudents){
   
   const backgroundImage = document.createElement("img");
   backgroundImage.className = "background-image";
-  backgroundImage.src = "./assets/img/bg.jpg";
+  backgroundImage.src = "./assets/img/bg.webp";
   
   const graduatesPage = document.createElement("div"); 
   graduatesPage.className = "graduates-page";
@@ -2684,7 +2665,7 @@ function createStudentSection(studentInfo){
   if(overlay && overlay.trim() !== ""){
     graduationOverlay.src = `${convertDriveLinkToEmbed(overlay)}`;
   } else{
-    graduationOverlay.src = "./assets/img/frame_default.png";
+    graduationOverlay.src = "./assets/img/frame_default.webp";
   }
 
   imageWrapper.appendChild(graduationOverlay);
@@ -2724,7 +2705,7 @@ function createStudentSection(studentInfo){
 function pushProgramDivider(pages, programName){
     if(pages.length % 2 !== 0){
       pages.push({
-        html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+        html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.webp">`,
       });
     }
     
@@ -2732,11 +2713,11 @@ function pushProgramDivider(pages, programName){
     
     pages.push({
       html: `
-      <img class="background-image" style="opacity: 0.7" src="./assets/img/bg-backup.jpg">
+      <img class="background-image" style="opacity: 0.7" src="./assets/img/bg-backup.webp">
       <div class="program-divider">
-        <img class="decor-divider select-none" draggable="false" loading="lazy" src="./assets/img/divider_2.png"><br>
+        <img class="decor-divider select-none" draggable="false" loading="lazy" src="./assets/img/divider_2.webp"><br>
         ${programName.replace(/Bachelor of\s*/i, "Bachelor of<br>").replace(/\s*with\b/i, "<br>with")}
-        <br><img class="decor-divider select-none" draggable="false" loading="lazy" src="./assets/img/divider_2.png">
+        <br><img class="decor-divider select-none" draggable="false" loading="lazy" src="./assets/img/divider_2.webp">
         </div>
       `,
     });
@@ -2862,19 +2843,19 @@ async function BuildBook() {
 
     bookPages.push({
       cover: true,
-      html: `<img class="background-image" src="./assets/img/front.jpg">`,
+      html: `<img class="background-image" src="./assets/img/front.webp">`,
     });
 
     bookPages.push({
       cover: true,
-      html: `<img class="background-image" src="./assets/img/front-op.jpg">`,
+      html: `<img class="background-image" src="./assets/img/front-op.webp">`,
     });
 
     tocPages.push({ name: "Disclaimer", pageNumber: bookPages.length });
 
     bookPages.push({
       html: `
-      <img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">
+      <img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.webp">
       <div class="graduates-page">
         <div class="message">
            <b>DISCLAIMER</b><br><br>This digital yearbook is a non-official, student-led project made as a personal gift for the Class of 2026. 
@@ -2887,7 +2868,7 @@ async function BuildBook() {
     });
 
     bookPages.push({
-      html: `<img class="background-image" style="opacity: 0.4" src="./assets/img/inter-left.jpg">`,
+      html: `<img class="background-image" style="opacity: 0.4" src="./assets/img/inter-left.webp">`,
     });
 
     tocPages.push({ name: "Table of Contents", pageNumber: bookPages.length });
@@ -2897,18 +2878,18 @@ async function BuildBook() {
     tocIndex = bookPages.length - 1;
 
     bookPages.push({
-      html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+      html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.webp">`,
     });
 
     bookPages.push({
       html: `
-      <img class="background-image" style="opacity: 0.5" src="./assets/img/bg.jpg">
-      <img class="background-image" loading="lazy" src="./assets/img/the-graduates.png">
+      <img class="background-image" style="opacity: 0.5" src="./assets/img/bg.webp">
+      <img class="background-image" loading="lazy" src="./assets/img/the-graduates.webp">
       `,
     });
 
     bookPages.push({
-      html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+      html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.webp">`,
     });
 
     AddStudentPagesFromData(bookPages, studentSheetData, picsSheetData);
@@ -2918,18 +2899,18 @@ async function BuildBook() {
     AddProgramPicturesFromData(bookPages, picsSheetData, "Various");
 
     bookPages.push({
-      html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+      html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.webp">`,
     });
     
     bookPages.push({
-      html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+      html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.webp">`,
     });
 
     tocPages.push({ name: "Message", pageNumber: bookPages.length });
 
     bookPages.push({
       html: `
-      <img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">
+      <img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.webp">
       <div class="graduates-page">
         <div class="message">
           hello class of '26,
@@ -2951,29 +2932,29 @@ async function BuildBook() {
     });
 
     bookPages.push({
-      html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+      html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.webp">`,
     });
 
     for (const door of ["door_1", "door_5", "door_2", "door_4", "door_3", "door_6"]) {
       bookPages.push({
-        html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/${door}.jpg">`,
+        html: `<img class="background-image" style="opacity: 0.5" loading="lazy" src="./assets/img/${door}.webp">`,
       });
     }
 
     if ((bookPages.length + 2) % 2 !== 0) {
       bookPages.push({
-        html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.jpg">`,
+        html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.webp">`,
       });
     }
 
     bookPages.push({
       cover: true,
-      html: `<img class="background-image" loading="lazy" src="./assets/img/back-op.jpg">`,
+      html: `<img class="background-image" loading="lazy" src="./assets/img/back-op.webp">`,
     });
 
     bookPages.push({
       cover: true,
-      html: `<img class="background-image" loading="lazy" src="./assets/img/back.jpg">`,
+      html: `<img class="background-image" loading="lazy" src="./assets/img/back.webp">`,
     });
 
     let tocLinksHtml = "";
@@ -2984,7 +2965,7 @@ async function BuildBook() {
 
     bookPages[tocIndex] = {
       html: `
-      <img class="background-image" style="opacity: 0.4" src="./assets/img/inter-right.png">
+      <img class="background-image" style="opacity: 0.4" src="./assets/img/inter-right.webp">
       <div class="toc-title">CONTENTS</div>
       <div class="table-of-content-page">
         <div class="toc-list">${tocLinksHtml}</div>
