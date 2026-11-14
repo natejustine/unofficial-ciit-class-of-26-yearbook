@@ -102,7 +102,7 @@ body {
     pointer-events: none;
     background-size: 100px;
     opacity: 0.2; 
-    background-image: url('/assets/img/noise.webp');
+    background-image: url('/assets/img/noise.png');
     
     animation: grain 1s steps(10, jump-none) infinite;
 }
