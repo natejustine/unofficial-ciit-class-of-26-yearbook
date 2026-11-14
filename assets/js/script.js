@@ -1,4 +1,4 @@
-const version = `v0.1.2`
+const version = `v0.1.3`
 const debug = false;
 
 const CONFIG = {
@@ -2664,7 +2664,7 @@ function createStudentSection(studentInfo){
   graduationPicture.className = "grad-pic select-none";
   graduationPicture.draggable = false;
   graduationPicture.loading = "lazy";
-  graduationPicture.src = `${convertDriveLinkToEmbed(studentInfo["Image URL (Drive)"]) || getRandomPlaceholder()}`
+  graduationPicture.src = `${convertDriveLinkToEmbed(studentInfo.Image) || getRandomPlaceholder()}`
   graduationPicture.alt = studentInfo.Name;
   
   imageWrapper.appendChild(graduationPicture);
@@ -2676,7 +2676,7 @@ function createStudentSection(studentInfo){
   
   // imageWrapper.appendChild(graduationFrame);
   
-  const overlay = studentInfo["Overlay Image URL (G Drive)"];
+  const overlay = studentInfo.Overlay;
   const graduationOverlay = document.createElement("img"); 
   graduationOverlay.className = "overlay select-none";
   graduationOverlay.draggable = false;
@@ -2689,7 +2689,7 @@ function createStudentSection(studentInfo){
 
   imageWrapper.appendChild(graduationOverlay);
   
-  const portfolioLink = studentInfo["Portfolio Link"];
+  const portfolioLink = studentInfo.Portfolio;
   if(portfolioLink && portfolioLink.trim() !== ""){
     const clickableLink = document.createElement("div"); 
     clickableLink.className = "student-link";
@@ -2703,16 +2703,7 @@ function createStudentSection(studentInfo){
   
   const studentNameDiv = document.createElement("div"); 
   studentNameDiv.className = "student-name";
-  
-  const preferredName = studentInfo["Preferred Name"];
-
-  if(preferredName && preferredName.trim() !== ""){
-    studentNameDiv.textContent = preferredName;
-    // text-transform: uppercase;
-  } else{
-    studentNameDiv.textContent = studentInfo.Name;
-    studentNameDiv.style.textTransform = "uppercase";
-  }
+  studentNameDiv.textContent = studentInfo.Name;
   
   infoWrapper.appendChild(studentNameDiv);
   
@@ -2771,7 +2762,7 @@ function AddStudentPagesFromData(pages, studentData, picturesData) {
   };
   
   for(const student of studentData){
-    if(filterNotSubmitted && (student["Image URL (Drive)"] == null || student["Image URL (Drive)"].trim() == "")) continue;
+    if(filterNotSubmitted && (student.Image == null || student.Image.trim() == "")) continue;
     const studentProgram = student.Program;
     
     // true for the very first student too, because currentProgram starts as null
