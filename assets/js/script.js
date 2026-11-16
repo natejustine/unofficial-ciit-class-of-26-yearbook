@@ -1,4 +1,4 @@
-const version = `v0.1.5`
+const version = `v0.1.6`
 const debug = false;
 
 const CONFIG = {
@@ -184,7 +184,7 @@ const tocPages = [];
 
 // #region Loading CSV
 
-async function loadSheetDataRows() {
+async function loadStudentSheetData() {
   try {
     let response;
     
@@ -192,6 +192,23 @@ async function loadSheetDataRows() {
       response = await fetch("./assets/ignore/students.csv");
     } else {
       response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=` + atob(gidMain));
+    }
+
+    const csvText = await response.text();
+    return csvToJson(csvText);
+  } catch (error) {
+    console.error("Error loading data:", error);
+  }
+}
+
+async function loadProgramSheetData() {
+  try {
+    let response;
+    
+    if (debug) {
+      response = await fetch("./assets/ignore/program.csv");
+    } else {
+      response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=` + atob(gidFeature));
     }
 
     const csvText = await response.text();
@@ -214,126 +231,6 @@ function csvToJson(csvString) {
       return obj;
     }, {})
   );
-}
-
-async function loadSheetDataColumns() {
-  try {
-    let response;
-    
-    if (debug) {
-      response = await fetch("./assets/ignore/program.csv");
-    } else {
-      response = await fetch(atob(cs) + atob(vu) + atob(rl) + `&gid=` + atob(gidFeature));
-    }
-  
-    const csvText = await response.text();
-    //return csvToColumnJson(csvText);
-    return csvToNestedColumnJson(csvText, 2)
-  } catch (error) {
-    console.error("Error loading data:", error);
-  }
-}
-
-function csvToColumnJson(csvString) {
-  const rows = parseCSV(csvString).filter((r) => r.some((c) => c.trim() !== ""));
-  if (rows.length <= 1) return {};
-  
-  const headers = rows[0];
-  const columnData = {};
-  
-  headers.forEach(header => {
-    columnData[header] = [];
-  });
-  
-  for (let i = 1; i < rows.length; i++) {
-    headers.forEach((header, index) => {
-      columnData[header].push(rows[i][index] || "");
-    });
-  }
-  
-  headers.forEach(header => {
-    const arr = columnData[header];
-    let lastValid = arr.length - 1;
-    
-    while (lastValid >= 0 && arr[lastValid] === "") {
-      lastValid--;
-    }
-    
-    arr.length = lastValid + 1;
-  });
-  
-  return columnData;
-}
-
-function csvToNestedColumnJson(csvString, headerRowsCount = 2) {
-  const rows = parseCSV(csvString);
-  if (rows.length <= headerRowsCount) return {};
-  
-  const headers = rows.slice(0, headerRowsCount);
-  const numCols = Math.max(...rows.map((row) => row.length));
-  
-  for (let r = 0; r < headers.length; r++) {
-    let lastValidVal = "";
-    for (let c = 0; c < numCols; c++) {
-      const current = (headers[r][c] || "").trim();
-      if (current !== "") {
-        lastValidVal = current;
-      } else {
-        headers[r][c] = lastValidVal;
-      }
-    }
-  }
-
-  const columnData = {}; 
-  
-  const colTargetArrays = new Array(numCols);
-
-  for (let c = 0; c < numCols; c++) {
-    const path = headers.map((hRow) => hRow[c]).filter(Boolean);
-    if (path.length === 0) continue;
-
-    let currentLevel = columnData;
-    for (let i = 0; i < path.length - 1; i++) {
-      const key = path[i];
-      if (!currentLevel[key]) {
-        currentLevel[key] = {};
-      }
-      currentLevel = currentLevel[key];
-    }
-    const leafKey = path[path.length - 1];
-    if (!currentLevel[leafKey]) {
-      currentLevel[leafKey] = [];
-    } 
-    colTargetArrays[c] = currentLevel[leafKey];
-  } 
-
-  for (let i = headerRowsCount; i < rows.length; i++) {
-    const values = rows[i];
-    for (let c = 0; c < numCols; c++) {
-      const targetArray = colTargetArrays[c];
-      if (targetArray) {
-        targetArray.push(values[c] || "");
-      }
-    }
-  } 
-
-  function trimArrays(obj) {
-    for (const key in obj) {
-      if (Array.isArray(obj[key])) {
-        const arr = obj[key];
-        let lastValid = arr.length - 1;
-        while (lastValid >= 0 && arr[lastValid] === "") {
-          lastValid--;
-        }
-        arr.length = lastValid + 1;
-      } else if (typeof obj[key] === "object" && obj[key] !== null) {
-        trimArrays(obj[key]);
-      }
-    }
-  }
-  
-  trimArrays(columnData);
-  return columnData;
 }
 
 function parseCSV(text) {
@@ -388,7 +285,21 @@ function parseCSV(text) {
   return rows;
 }
 
+function processPicsSheetData(raw) {
+  const sorted = {};
 
+  for (const entry of raw) {
+    const category = entry.Category || 'Uncategorized';
+    
+    if (!sorted[category]) {
+      sorted[category] = [];
+    }
+
+    sorted[category].push(entry);
+  }
+
+  return sorted;
+}
 
 // #endregion
 
@@ -2510,13 +2421,10 @@ function AddProgramPicturesFromData(pages, picturesData, programName) {
   }
   
   let currentBatch = [];
-  
-  const urls = programData["Drive Link"];
-    
-  if (urls && urls.length > 0) {
-    for (var i = 0; i < urls.length; i++) {
-      var url = urls[i];
-      currentBatch.push({url: url, title: programData["Short Title (Optional)"][i], w: programData["width"][i], h: programData["height"][i]});
+
+  if(programData.length > 0){
+    for(const entry of programData){
+      currentBatch.push({url: entry.Picture, title: entry.Title, w: entry.Width, h: entry.Height});
       
       if (currentBatch.length === programPicturesPerPage) {
         var pageHtml = createFeaturedPicturesPage(currentBatch);
@@ -2525,13 +2433,14 @@ function AddProgramPicturesFromData(pages, picturesData, programName) {
         currentBatch = [];
       }
     }
-    
+
     if (currentBatch.length > 0) {
       var pageHtml = createFeaturedPicturesPage(currentBatch);
       featuredPhotosHtml[programName].push(pageHtml)
       pages.push({ html: pageHtml });
     }
   }
+  
 }
 
 function createPicturesHolder(photoData){
@@ -2896,7 +2805,7 @@ async function BuildBook() {
 
     pushProgramDivider(bookPages, "Batch Featured Photos");
 
-    AddProgramPicturesFromData(bookPages, picsSheetData, "Various");
+    AddProgramPicturesFromData(bookPages, picsSheetData, "General");
 
     bookPages.push({
       html: `<img class="background-image" style="opacity: 0.1" src="./assets/img/pattern.webp">`,
@@ -3001,7 +2910,7 @@ async function initialize() {
 
   updateLoading("Loading Student Database", '0.1');
 
-  studentSheetData = await loadSheetDataRows();
+  studentSheetData = await loadStudentSheetData();
 
   if (studentSheetData) databaseLastUpdate = studentSheetData[0]["LastUpdate"];
   if (studentSheetData) dataPercentComplete = studentSheetData[1]["LastUpdate"];
@@ -3009,11 +2918,12 @@ async function initialize() {
   if (info) info.textContent = `${version} - synced: ${databaseLastUpdate}`;
 
   updateLoading("Loading Program Database", '0.4');
-
-  picsSheetData = await loadSheetDataColumns();
-
+  
+  const rawPicsSheetData = await loadProgramSheetData();
+  picsSheetData = processPicsSheetData(rawPicsSheetData);
+  
   updateLoading("Building Book", '0.6');
-
+  
   await BuildBook();
 
   updateLoading("Registering Events...", '0.8');
